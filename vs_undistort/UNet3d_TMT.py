@@ -1,3 +1,6 @@
+
+# Code from "Turbulence Mitigation Transformer" https://github.com/xg416/TMT
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
