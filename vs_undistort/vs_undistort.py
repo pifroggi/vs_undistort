@@ -1,3 +1,9 @@
+
+# Script to run "Turbulence Mitigation Transformer" https://github.com/xg416/TMT
+
+# Vapoursynth Implementation by pifroggi
+# or tepete on the "Enhance Everything!" Discord Server
+
 import vapoursynth as vs
 import os
 import torch
