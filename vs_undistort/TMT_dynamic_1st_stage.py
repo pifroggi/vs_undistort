@@ -1,3 +1,9 @@
+
+# Code from "Turbulence Mitigation Transformer" https://github.com/xg416/TMT
+
+# Vapoursynth Implementation by pifroggi
+# or tepete on the "Enhance Everything!" Discord Server
+
 import torch
 import torch.nn.functional as F
 import numpy as np
