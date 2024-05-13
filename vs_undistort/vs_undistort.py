@@ -89,4 +89,5 @@ def vs_undistort(clip, temp_window=10, tile_size=480, device="cuda"):
     #stack, process, unstack
     stacked_clip = stack_frames(clip, temp_window, original_width, original_height)
     stacked_clip = process_clip(stacked_clip, tile_size, temp_window, model_tilt, device)
-    return split_stacked_frames(stacked_clip, original_width, temp_window, original_height)
+    unstacked_clip = split_stacked_frames(stacked_clip, original_width, temp_window, original_height)
+    return core.std.Trim(unstacked_clip, last=clip.num_frames-1)
