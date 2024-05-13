@@ -64,4 +64,6 @@ __*device*__
 Possible values are "cuda" to use with an Nvidia GPU, or "cpu". This will be extremely slow on CPU.
 
 ## Tips
+If you are getting "*RuntimeError: CUDA error: invalid argument*" you are likely running out of GPU memory. Try lowering tile_size or temp_window. Restarting vsedit can also clear memory, if it is in use.
+
 If you have an undistorted reference clip, try this: https://github.com/pifroggi/vs_align
