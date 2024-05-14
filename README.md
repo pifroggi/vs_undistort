@@ -24,7 +24,7 @@
 
 
 # Video Distortion Removal for Vapoursynth
-Also known as atmospheric turbulance mitigation, warp stabilization, film shrink distortion fix, dewobble, dewiggle, detilt, rectification, heat haze removal.
+Also known as atmospheric turbulance mitigation, warp stabilization, film shrink distortion fix, dewobble, dewiggle, detilt, rectification, heat haze removal. Can help with distortions from low bitrate compression or old codecs like MPEG2.
 
 This does not do general video stabilization for shaky footage, only removes distortions within the frames. It is recommented to stabilize first if needed.
 
@@ -67,3 +67,11 @@ Possible values are "cuda" to use with an Nvidia GPU, or "cpu". This will be ext
 If you are getting "*RuntimeError: CUDA error: invalid argument*" you are likely running out of GPU memory. Try lowering tile_size or temp_window. Restarting vsedit can also clear memory, if it is in use.
 
 If you have an undistorted reference clip, try this: https://github.com/pifroggi/vs_align
+
+## Benchmarks
+
+| Hardware | Resolution  | Average FPS
+| -------- | ----------- | -----------
+| RTX 4090 | 720x480     | ~8 fps
+| RTX 4090 | 1440x1080   | ~2.5 fps
+| RTX 4090 | 2880x2160   | ~0.7 fps
