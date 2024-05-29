@@ -8,8 +8,8 @@ import vapoursynth as vs
 import os
 import torch
 import numpy as np
-from vs_undistort.TMT_dynamic_1st_stage import process_images
-from vs_undistort.UNet3d_TMT import DetiltUNet3DS
+from .TMT_dynamic_1st_stage import process_images
+from .UNet3d_TMT import DetiltUNet3DS
 
 core = vs.core
 
@@ -54,7 +54,8 @@ def array_to_frame(img: np.ndarray, frame: vs.VideoFrame):
 
 def load_model(device):
     model_tilt = DetiltUNet3DS(norm='LN', residual='pool', conv_type='dw').to(device)
-    path_tilt = os.path.join('vs_undistort', 'dynamic_1st_stage.pth')
+    current_folder = os.path.dirname(os.path.abspath(__file__))
+    path_tilt = os.path.join(current_folder, 'dynamic_1st_stage.pth')
     if os.path.exists(path_tilt):
         ckpt_tilt = torch.load(path_tilt, map_location=device)
         model_tilt.load_state_dict(ckpt_tilt['state_dict'] if 'state_dict' in ckpt_tilt else ckpt_tilt)
