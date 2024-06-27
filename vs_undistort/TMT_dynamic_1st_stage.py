@@ -6,32 +6,21 @@
 
 import torch
 import torch.nn.functional as F
-import numpy as np
 
-def fetch_images(image_array, temp_window, patch_unit=16):
-    h, w, c = image_array.shape
+def fetch_images(image_tensor, temp_window, patch_unit=16):
+    h, w, c = image_tensor.shape
     frame_width = w // temp_window
-    frames = [image_array[:, i * frame_width:(i + 1) * frame_width, :] for i in range(temp_window)]
-    
+    frames = torch.empty((temp_window, c, h, frame_width), dtype=image_tensor.dtype, device=image_tensor.device)
+
+    for i in range(temp_window):
+        frames[i] = image_tensor[:, i * frame_width:(i + 1) * frame_width, :].permute(2, 0, 1)
+
     #padding
     padh = patch_unit - h % patch_unit if h % patch_unit != 0 else 0
     padw = patch_unit - frame_width % patch_unit if frame_width % patch_unit != 0 else 0
+    frames = F.pad(frames, (0, padw, 0, padh), mode='reflect')
 
-    #convert numpy arrays to tensors and apply padding
-    frames = [torch.tensor(frame, dtype=torch.float32) for frame in frames]
-    frames = [F.pad(frame.permute(2, 0, 1), (0, padw, 0, padh), mode='reflect') for frame in frames]
-    
-    #stack frames along a new dimension
-    stacked_frames = torch.stack(frames, dim=0)
-
-    return stacked_frames, h, frame_width, temp_window
-
-def tensor_to_array(tensor, b, fidx):
-    img_tensor = tensor[b, fidx, ...].data.unsqueeze(0).clamp_(0, 1)
-    img = img_tensor.squeeze().cpu().numpy()
-    if img.ndim == 3:
-        img = np.transpose(img, (1, 2, 0))  # CHW to HWC
-    return img
+    return frames, h, frame_width, temp_window
 
 def split_to_patches(h, w, s):
     nh = h // s + (1 if h % s != 0 else 0)
@@ -46,25 +35,31 @@ def split_to_patches(h, w, s):
     return hpos, wpos
 
 def test_spatial_overlap(input_blk, model_tilt, patch_size):
-    _, c, l, h, w = input_blk.shape
+    b, c, l, h, w = input_blk.shape
     hpos, wpos = split_to_patches(h, w, patch_size)
     out_spaces = torch.zeros_like(input_blk)
-    out_masks = torch.zeros_like(input_blk)
+    out_masks = torch.zeros((b, c, l, h, w), device=input_blk.device, dtype=input_blk.dtype)
+    ones_patch = torch.ones((b, c, l, patch_size, patch_size), device=input_blk.device, dtype=input_blk.dtype)
+
     for hi in hpos:
         for wi in wpos:
-            input_ = input_blk[..., hi:hi+patch_size, wi:wi+patch_size]
-            _, _, rectified = model_tilt(input_.permute(0,2,1,3,4))
-            out_spaces[..., hi:hi+patch_size, wi:wi+patch_size].add_(rectified.permute(0,2,1,3,4))
-            out_masks[..., hi:hi+patch_size, wi:wi+patch_size].add_(torch.ones_like(input_))
+            input_ = input_blk[..., hi:hi + patch_size, wi:wi + patch_size]
+            _, _, rectified = model_tilt(input_.permute(0, 2, 1, 3, 4))
+            rectified = rectified.permute(0, 2, 1, 3, 4)
+            out_spaces[..., hi:hi + patch_size, wi:wi + patch_size] += rectified
+            out_masks[..., hi:hi + patch_size, wi:wi + patch_size] += ones_patch[..., :rectified.shape[-2], :rectified.shape[-1]]
+
+    out_masks[out_masks == 0] = 1
     return out_spaces / out_masks
 
-def process_images(image_array, patch_size, temp_window, model_tilt, device):
-    turb_imgs, h, frame_width, _ = fetch_images(image_array, temp_window, patch_size)
-    turb_imgs = turb_imgs.unsqueeze(0).to(device).permute(0,2,1,3,4)
+def process_images(image_tensor, patch_size, temp_window, model_tilt):
+    turb_imgs, h, frame_width, _ = fetch_images(image_tensor, temp_window, patch_size)
+    turb_imgs = turb_imgs.unsqueeze(0).permute(0, 2, 1, 3, 4)
 
     with torch.no_grad():
-        recovered = test_spatial_overlap(turb_imgs, model_tilt, patch_size)
-        recovered = recovered[..., :h, :frame_width].permute(0,2,1,3,4)
+        with torch.cuda.amp.autocast():
+            recovered = test_spatial_overlap(turb_imgs, model_tilt, patch_size)
+        recovered = recovered[..., :h, :frame_width].permute(0, 2, 1, 3, 4)
 
-        stacked_image = np.hstack([tensor_to_array(recovered, 0, i) for i in range(recovered.shape[1])])
+        stacked_image = torch.cat([recovered[0, i].permute(1, 2, 0) for i in range(recovered.shape[1])], dim=1)
         return stacked_image
