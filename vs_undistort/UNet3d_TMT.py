@@ -265,7 +265,7 @@ class Deconv3D_Block(nn.Module):
     def forward(self, x):
         return self.deconv(x)
 
-def TiltWarp(x, flow, interp_mode='bilinear', padding_mode='zeros', align_corners=True, use_pad_mask=False):
+def TiltWarp(x, flow, interp_mode='bicubic', padding_mode='reflection', align_corners=True, use_pad_mask=False):
     """
     Args:
         x (Tensor): Tensor with size (b, n, c, h, w) -> (b*n, c, h, w).
