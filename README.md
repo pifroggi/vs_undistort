@@ -24,7 +24,7 @@
 
 
 # Video Distortion Removal for Vapoursynth
-Also known as atmospheric turbulance mitigation, warp stabilization, film shrink distortion fix, dewobble, dewiggle, detilt, rectification, heat haze removal. Can help with distortions from low bitrate compression or old codecs like MPEG2.
+Also known as atmospheric turbulance mitigation, warp stabilization, film shrink or VHS distortion fix, dewobble, dewiggle, detilt, rectification, heat haze removal. Can help with distortions from low bitrate compression or old codecs like MPEG2.
 
 This does not do general video stabilization for shaky footage, only removes distortions within the frames. It is recommented to stabilize first if needed.
 
@@ -49,18 +49,18 @@ Drop the entire "vs_undistort" folder to where you typically load scripts from.
     from vs_undistort import vs_undistort
     clip = vs_undistort(clip, temp_window=10, tile_size=480, device="cuda")
 
-__*clip*__  
+__*`clip`*__  
 Distorted clip. Must be in RGBS format.
 
-__*temp_window*__  
+__*`temp_window`*__  
 Temporal window. Amount of frames to include in the calculation and size of chunks the clip will be processed in.  
 Larger means higher VRAM requirements, but better temporal averaging effect and slower distortions can be removed. If this is too small, some distortions may not get removed and seams from tile_size may become more obvious.  
 
-__*tile_size*__  
+__*`tile_size`*__  
 Size of tiles to split the frames into. Must be a multiple of 16.  
 Larger means higher VRAM requirements, but better spatial averaging effect and larger/lower frequency distortions can be removed. If distortions are larger than tile_size, they can not be removed. If only some distortions are larger than tile_size, visible seams may appear.  
 
-__*device*__  
+__*`device`*__  
 Possible values are "cuda" to use with an Nvidia GPU, or "cpu". This will be extremely slow on CPU.
 
 ## Tips
@@ -72,6 +72,6 @@ If you have an undistorted reference clip, try this: https://github.com/pifroggi
 
 | Hardware | Resolution  | Average FPS
 | -------- | ----------- | -----------
-| RTX 4090 | 720x480     | ~8 fps
-| RTX 4090 | 1440x1080   | ~2.5 fps
-| RTX 4090 | 2880x2160   | ~0.7 fps
+| RTX 4090 | 720x480     | ~14 fps
+| RTX 4090 | 1440x1080   | ~3.5 fps
+| RTX 4090 | 2880x2160   | ~1 fps
