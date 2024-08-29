@@ -37,12 +37,12 @@ This is a partial implementation of the [Turbulence Mitigation Transformer](http
 <br />
 
 ## Requirements
-* pip install numpy
-* pip install einops
 * [pytorch](https://pytorch.org/)
+* `pip install numpy`
+* `pip install einops`
 
 ## Setup
-Drop the entire "vs_undistort" folder to where you typically load scripts from.
+Put the entire "vs_undistort" folder into your scripts folder, or where you typically load scripts from.
 
 ## Usage
 
@@ -63,7 +63,7 @@ Larger means higher VRAM requirements, but better spatial averaging effect and l
 __*`device`*__  
 Possible values are "cuda" to use with an Nvidia GPU, or "cpu". This will be extremely slow on CPU.
 
-## Tips
+## Tips & Troubleshooting
 If you are getting "*RuntimeError: CUDA error: invalid argument*" you are likely running out of GPU memory. Try lowering tile_size or temp_window. Restarting vsedit can also clear memory, if it is in use.
 
 If you have an undistorted reference clip, try this: https://github.com/pifroggi/vs_align
