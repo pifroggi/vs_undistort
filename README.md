@@ -42,7 +42,8 @@ This is a partial implementation of the [Turbulence Mitigation Transformer](http
 * `pip install einops`
 
 ## Setup
-Put the entire "vs_undistort" folder into your scripts folder, or where you typically load scripts from.
+Put the entire `vs_undistort` folder into your vapoursynth scripts folder.  
+Or install via pip: `pip install git+https://github.com/pifroggi/vs_undistort.git`
 
 ## Usage
 
