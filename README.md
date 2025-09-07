@@ -37,7 +37,7 @@ This is a partial implementation of the [Turbulence Mitigation Transformer](http
 <br />
 
 ## Requirements
-* [pytorch](https://pytorch.org/)
+* [pytorch with cuda](https://pytorch.org/)
 * `pip install numpy`
 * `pip install einops`
 
@@ -55,19 +55,30 @@ Distorted clip. Must be in RGBS format.
 
 __*`temp_window`*__  
 Temporal window. Amount of frames to include in the calculation and size of chunks the clip will be processed in.  
-Larger means higher VRAM requirements, but better temporal averaging effect and slower distortions can be removed. If this is too small, some distortions may not get removed and seams from tile_size may become more obvious.  
+Larger means higher VRAM requirements, but better temporal averaging effect and slower distortions can be removed. If this is too small, some distortions may not get removed, small jumps/hitches may be visible between temporal windows and seams from tile_size may become more obvious.  
 
 __*`tile_size`*__  
 Size of tiles to split the frames into. Must be a multiple of 16.  
-Larger means higher VRAM requirements, but better spatial averaging effect and larger/lower frequency distortions can be removed. If distortions are larger than tile_size, they can not be removed. If only some distortions are larger than tile_size, visible seams may appear.  
+Larger means higher VRAM requirements, but better spatial averaging effect and larger/lower frequency distortions can be removed. If distortions are larger than tile_size, they can not be removed.  
 
 __*`device`*__  
 Possible values are "cuda" to use with an Nvidia GPU, or "cpu". This will be extremely slow on CPU.
 
-## Tips & Troubleshooting
-If you are getting "*RuntimeError: CUDA error: invalid argument*" you are likely running out of GPU memory. Try lowering tile_size or temp_window. Restarting vsedit can also clear memory, if it is in use.
+> [!TIP]
+> If you are getting "*RuntimeError: CUDA error: invalid argument*" you are likely running out of GPU memory. Try lowering tile_size or temp_window.
 
-If you have an undistorted reference clip, try this: https://github.com/pifroggi/vs_align
+> [!TIP]
+> If you see sudden jumps/hitches between temporal windows, you can crossfade the windows with [vs_tiletools](https://github.com/pifroggi/vs_tiletools) like this:
+> ```python
+> clip = vs_tiletools.window(clip, length=10, overlap=4)
+> clip = vs_undistort(clip, temp_window=10)
+> clip = vs_tiletools.unwindow(clip, fade=True)
+> ```
+
+> [!TIP]
+> If you have an undistorted reference clip, try to align to it with [vs_align](https://github.com/pifroggi/vs_align) instead.
+
+<br />
 
 ## Benchmarks
 
