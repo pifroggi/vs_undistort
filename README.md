@@ -23,7 +23,7 @@
 
 
 
-# Video Distortion Removal for Vapoursynth
+# Video Distortion Removal for VapourSynth
 Also known as atmospheric turbulance mitigation, warp stabilization, film shrink or VHS distortion fix, dewobble, dewiggle, detilt, rectification, heat haze removal. Can help with distortions from low bitrate compression or old codecs like MPEG2.
 
 This does not do general video stabilization for shaky footage, only removes distortions within the frames. It is recommented to stabilize first if needed.
@@ -43,12 +43,14 @@ This is a partial implementation of the [Turbulence Mitigation Transformer](http
 
 ## Setup
 Put the entire `vs_undistort` folder into your vapoursynth scripts folder.  
-Or install via pip: `pip install git+https://github.com/pifroggi/vs_undistort.git`
+Or install via pip: `pip install -U git+https://github.com/pifroggi/vs_undistort.git`
 
 ## Usage
 
-    from vs_undistort import vs_undistort
-    clip = vs_undistort(clip, temp_window=10, tile_size=480, device="cuda")
+```python
+from vs_undistort import vs_undistort
+clip = vs_undistort(clip, temp_window=10, tile_size=480, device="cuda")
+```
 
 __*`clip`*__  
 Distorted clip. Must be in RGBS format.
@@ -65,15 +67,15 @@ __*`device`*__
 Possible values are "cuda" to use with an Nvidia GPU, or "cpu". This will be extremely slow on CPU.
 
 > [!TIP]
-> If you are getting "*RuntimeError: CUDA error: invalid argument*" you are likely running out of GPU memory. Try lowering tile_size or temp_window.
-
-> [!TIP]
 > If you see sudden jumps/hitches between temporal windows, you can crossfade the windows with [vs_tiletools](https://github.com/pifroggi/vs_tiletools) like this:
 > ```python
 > clip = vs_tiletools.window(clip, length=10, overlap=4)
 > clip = vs_undistort(clip, temp_window=10)
 > clip = vs_tiletools.unwindow(clip, fade=True)
 > ```
+
+> [!TIP]
+> If you are getting "*RuntimeError: CUDA error: invalid argument*" you are likely running out of GPU memory. Try lowering tile_size or temp_window.
 
 > [!TIP]
 > If you have an undistorted reference clip, try to align to it with [vs_align](https://github.com/pifroggi/vs_align) instead.
