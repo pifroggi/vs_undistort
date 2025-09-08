@@ -49,7 +49,7 @@ Or install via pip: `pip install -U git+https://github.com/pifroggi/vs_undistort
 
 ```python
 from vs_undistort import vs_undistort
-clip = vs_undistort(clip, temp_window=10, tile_size=480, device="cuda")
+clip = vs_undistort(clip, temp_window=10, tile_width=480, tile_height=480, device="cuda")
 ```
 
 __*`clip`*__  
@@ -59,7 +59,7 @@ __*`temp_window`*__
 Temporal window. Amount of frames to include in the calculation and size of chunks the clip will be processed in.  
 Larger means higher VRAM requirements, but better temporal averaging effect and slower distortions can be removed. If this is too small, some distortions may not get removed, small jumps/hitches may be visible between temporal windows and seams from tile_size may become more obvious.  
 
-__*`tile_size`*__  
+__*`tile_width`*, *`tile_height`*__  
 Size of tiles to split the frames into. Must be a multiple of 16.  
 Larger means higher VRAM requirements, but better spatial averaging effect and larger/lower frequency distortions can be removed. If distortions are larger than tile_size, they can not be removed.  
 
@@ -67,18 +67,18 @@ __*`device`*__
 Possible values are "cuda" to use with an Nvidia GPU, or "cpu". This will be extremely slow on CPU.
 
 > [!TIP]
-> If you see sudden jumps/hitches between temporal windows, you can crossfade the windows with [vs_tiletools](https://github.com/pifroggi/vs_tiletools) like this:
+> If you are getting *`RuntimeError: CUDA error: invalid argument`* you are likely running out of GPU memory. Try lowering the tile size or the temporal window length.
+
+> [!TIP]
+> If you have an undistorted reference clip, try to align to it with [vs_align](https://github.com/pifroggi/vs_align) instead.
+
+> [!TIP]
+> If you see jumps/hitches between temporal windows, you can crossfade the windows with [vs_tiletools](https://github.com/pifroggi/vs_tiletools) like this:
 > ```python
 > clip = vs_tiletools.window(clip, length=10, overlap=4)
 > clip = vs_undistort(clip, temp_window=10)
 > clip = vs_tiletools.unwindow(clip, fade=True)
 > ```
-
-> [!TIP]
-> If you are getting "*RuntimeError: CUDA error: invalid argument*" you are likely running out of GPU memory. Try lowering tile_size or temp_window.
-
-> [!TIP]
-> If you have an undistorted reference clip, try to align to it with [vs_align](https://github.com/pifroggi/vs_align) instead.
 
 <br />
 
