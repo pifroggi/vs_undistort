@@ -1,8 +1,7 @@
-
 # Script to run "Turbulence Mitigation Transformer" https://github.com/xg416/TMT
 
-# Vapoursynth Implementation by pifroggi
-# or tepete on the "Enhance Everything!" Discord Server
+# Vapoursynth Implementation by pifroggi https://github.com/pifroggi/vs_undistort
+# or tepete and pifroggi on Discord
 
 import vapoursynth as vs
 import os
@@ -13,80 +12,78 @@ from .UNet3d_TMT import DetiltUNet3DS
 
 core = vs.core
 
-def stack_frames(clip, temp_window, frame_width, frame_height):
-    length = clip.num_frames
-    stacked_clips = []
-    border_color = [0.5, 0.5, 0.5]
 
-    for i in range(0, length, temp_window):
-        remaining_frames = min(temp_window, length - i)
-        frames = [clip[j] for j in range(i, i + remaining_frames)]
-        
-        if remaining_frames < temp_window:
-            border_width = (temp_window - remaining_frames) * frame_width
-            stacked_frame = core.std.AddBorders(core.std.StackHorizontal(clips=frames), right=border_width, color=border_color)
-        else:
-            stacked_frame = core.std.StackHorizontal(clips=frames)
-        
-        stacked_clips.append(stacked_frame)
-    return core.std.Splice(clips=stacked_clips, mismatch=True)
+def frames_to_tensor(frames, device):
+    temp_window = len(frames)
+    h, w = frames[0].height, frames[0].width
+    num_planes = frames[0].format.num_planes
+    arr = np.empty((temp_window, num_planes, h, w), dtype=np.float32)
+    for i, fr in enumerate(frames):
+        for p in range(num_planes):
+            arr[i, p] = np.asarray(fr[p], dtype=np.float32)
+    return torch.from_numpy(arr).to(device).clamp_(0, 1)
 
-def split_stacked_frames(stacked_clip, frame_width, temp_window, frame_height):
-    frames = []
-    crop_params = [(frame_width * j, frame_width, frame_height) for j in range(temp_window)]
 
-    for i in range(stacked_clip.num_frames):
-        stacked_frame = stacked_clip[i]
-        for crop_left, width, height in crop_params:
-            frame = core.std.CropAbs(clip=stacked_frame, left=crop_left, top=0, width=width, height=height)
-            frames.append(frame)
-
-    return core.std.Splice(clips=frames, mismatch=True)
-
-def frame_to_tensor(frame: vs.VideoFrame, device: str) -> torch.Tensor:
-    array = np.empty((frame.height, frame.width, 3), dtype=np.float32)
-    for p in range(frame.format.num_planes):
-        array[..., p] = np.asarray(frame[p], dtype=np.float32)
-    tensor = torch.from_numpy(array).to(device)
-    return tensor.clamp_(0, 1)
-
-def tensor_to_frame(tensor: torch.Tensor, frame: vs.VideoFrame):
-    tensor_np = tensor.cpu().numpy()
+def tensor_to_frame(tensor, frame):
+    tensor_np = tensor.detach().cpu().numpy()
     for p in range(frame.format.num_planes):
         frame_arr = np.asarray(frame[p])
         np.copyto(frame_arr, tensor_np[:, :, p])
 
+
 def load_model(device):
-    model_tilt = DetiltUNet3DS(norm='LN', residual='pool', conv_type='dw').to(device)
+    model_tilt = DetiltUNet3DS(norm="LN", residual="pool", conv_type="dw").to(device)
     current_folder = os.path.dirname(os.path.abspath(__file__))
-    path_tilt = os.path.join(current_folder, 'dynamic_1st_stage.pth')
+    path_tilt = os.path.join(current_folder, "dynamic_1st_stage.pth")
     ckpt_tilt = torch.load(path_tilt, map_location=device)
-    model_tilt.load_state_dict(ckpt_tilt['state_dict'] if 'state_dict' in ckpt_tilt else ckpt_tilt)
+    model_tilt.load_state_dict(ckpt_tilt["state_dict"] if "state_dict" in ckpt_tilt else ckpt_tilt)
     model_tilt.eval()
     return model_tilt
 
-def vs_undistort(clip, temp_window=10, tile_size=480, device="cuda"):
 
-    #checks
+def get_window(clip, temp_window):
+    # how many pad frames to reach a multiple of temp_window
+    num_frames = clip.num_frames
+    pad = (-num_frames) % temp_window
+
+    if pad:
+        # pad black frames if too short
+        pad_clip = core.std.BlankClip(clip=clip, length=pad)
+        clip     = core.std.Splice([clip, pad_clip])
+
+    return [core.std.SelectEvery(clip[i:], cycle=temp_window, offsets=[0]) for i in range(temp_window)]
+
+
+def vs_undistort(clip, temp_window=10, tile_width=480, tile_height=480, device="cuda"):
+    # checks
+    if not isinstance(clip, vs.VideoNode):
+        raise TypeError("vs_undistort: Clip must be a vapoursynth clip.")
     if clip.format.id not in [vs.RGBS]:
-        raise ValueError("Input clip must be in RGBS format.")
-    if tile_size % 16 != 0:
-        raise ValueError("tile_size must be a multiple of 16.")
+        raise ValueError("vs_undistort: Clip must be in RGBS format.")
+    if temp_window < 1:
+        raise ValueError("vs_undistort: Temporal window must be at least 1.")
+    if tile_width % 16 != 0 or tile_height % 16 != 0:
+        closest_w = round(tile_width  / 16) * 16
+        closest_h = round(tile_height / 16) * 16
+        raise ValueError(f"vs_undistort: Tile size must be a multiple of 16. Closest values: {closest_w} x {closest_h}.")
 
-    original_width = clip.width
-    original_height = clip.height
+    width  = clip.width
+    height = clip.height
     device = torch.device(device)
     model_tilt = load_model(device)
 
-    def process_frame(n, f):
-        source_frame = frame_to_tensor(f, device)
-        processed_frame_tensor = process_images(source_frame, tile_size, temp_window, model_tilt)
-        fout = f.copy()
-        tensor_to_frame(processed_frame_tensor, fout)
+    def process_window(n, f):
+        fout = f[0].copy()
+        window_frames  = f[1:]
+        frames_tensor  = frames_to_tensor(window_frames, device)
+        stacked_tensor = process_images(frames_tensor, tile_height, tile_width, model_tilt)
+        tensor_to_frame(stacked_tensor, fout)
         return fout
 
-    #stack, process, unstack
-    stacked_clip = stack_frames(clip, temp_window, original_width, original_height)
-    stacked_clip = core.std.ModifyFrame(stacked_clip, clips=[stacked_clip], selector=process_frame)
-    unstacked_clip = split_stacked_frames(stacked_clip, original_width, temp_window, original_height)
-    return core.std.Trim(unstacked_clip, last=clip.num_frames - 1)
+    offset_clips   = get_window(clip, temp_window)
+    out_shape      = core.std.BlankClip(clip=offset_clips[0], width=width * temp_window, height=height, keep=True)
+    stacked_clip   = core.std.ModifyFrame(out_shape, clips=[out_shape, *offset_clips], selector=process_window)
+    offset_clips   = [core.std.Crop(stacked_clip, left=i * width, right=(temp_window - 1 - i) * width) for i in range(temp_window)]
+    unstacked_clip = core.std.Interleave(offset_clips)
+    unstacked_clip = core.std.Trim(unstacked_clip, last=clip.num_frames - 1)
+    return core.std.CopyFrameProps(unstacked_clip, clip)
