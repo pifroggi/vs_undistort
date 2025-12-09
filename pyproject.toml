@@ -4,18 +4,17 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "vs_undistort"
-version = "1.0.0"
+version = "2.0.0"
 description = "Vapoursynth function to remove video distortions, turbulance, wobble, warp, heat haze, or similar."
 authors = [{ name = "pifroggi" }]
 
 dependencies = [
 	"torch",
-    "numpy",
-    "einops"
+    "numpy"
 ]
 
 [tool.setuptools.package-data]
-vs_undistort = ["*.pth"]
+vs_undistort = ["*.pth", "*.onnx"]
 
 [project.urls]
 Home-page = "https://github.com/pifroggi/vs_undistort"
