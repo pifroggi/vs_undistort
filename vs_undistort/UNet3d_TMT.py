@@ -1,31 +1,23 @@
-
 # Code from "Turbulence Mitigation Transformer" https://github.com/xg416/TMT
+
+# Vapoursynth Implementation by pifroggi https://github.com/pifroggi/vs_undistort
+# or tepete and pifroggi on Discord
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from einops import rearrange
-import random
 
 class LayerNorm3D(nn.Module):
     def __init__(self, dim, bias=True):
-        super(LayerNorm3D, self).__init__()
+        super().__init__()
         self.LN = nn.LayerNorm(dim, elementwise_affine=bias)
-    
-    def to_3d(self, x):
-        return rearrange(x, 'b c t h w -> b (t h w) c')
-
-    def to_5d(self,x,t,h,w):
-        return rearrange(x, 'b (t h w) c -> b c t h w', t=t, h=h,w=w)
 
     def forward(self, x):
-        t, h, w = x.shape[-3:]
-        return self.to_5d(self.LN(self.to_3d(x)), t, h, w)
-        
-def add_noise(img, sigma):
-    noise = (sigma**0.5)*torch.randn(img.shape, device=img.device)
-    out = img + noise
-    return out.clamp(0,1)
+        # x: (B, C, T, H, W)
+        x = x.permute(0, 2, 3, 4, 1)  # (B, T, H, W, C)
+        x = self.LN(x)                # normalize over last dim (C)
+        x = x.permute(0, 4, 1, 2, 3)  # (B, C, T, H, W)
+        return x
         
 class DetiltUNet3DS(nn.Module):
     # __                            __
@@ -34,7 +26,7 @@ class DetiltUNet3DS(nn.Module):
     #        3|__  ______  __|3
     #           4|__ __ __|4
     # The convolution operations on either side are residual subject to 1*1 Convolution for channel homogeneity
-    def __init__(self, num_channels=3, feat_channels=[64, 256, 256, 512], norm='BN', conv_type='normal', residual='conv', noise=0):
+    def __init__(self, num_channels=3, feat_channels=[64, 256, 256, 512], norm='BN', conv_type='normal', residual='conv', interpolation='bilinear'):
         # residual: conv for residual input x through 1*1 conv across every layer for downsampling, None for removal of residuals
         super(DetiltUNet3DS, self).__init__()
 
@@ -72,12 +64,19 @@ class DetiltUNet3DS(nn.Module):
         
         self.upsample3 = nn.Upsample(size=None, scale_factor=(1,4,4), mode='trilinear', align_corners=True)
         self.upsample2 = nn.Upsample(size=None, scale_factor=(1,2,2), mode='trilinear', align_corners=True)
-        self.noise = noise
 
-    def forward(self, x):
+        # TiltWarp settings
+        self.interpolation = interpolation
+        if interpolation == 'bilinear':
+            self.interp_mode = 'bilinear'
+            self.padding_mode = 'zeros'
+        elif interpolation == 'bicubic':
+            self.interp_mode = 'bicubic'
+            self.padding_mode = 'reflection'
+
+    def forward(self, x, scales=[True, True, True]):
         # Encoder part
         xin = x.permute(0,2,1,3,4)
-        xin = add_noise(xin, self.noise*random.random())
         x1 = self.conv_blk1(xin)
 
         x_low1 = self.pool1(x1)
@@ -98,13 +97,36 @@ class DetiltUNet3DS(nn.Module):
         d1 = torch.cat([self.deconv_blk1(d_high2), x1], dim=1)
         d_high1 = self.dec_conv_blk1(d1)
         
+        s3, s2, s1 = scales
         flow3 = self.out_conv3(d_high3)
         flow2 = self.out_conv2(d_high2)
         flow1 = self.out_conv1(d_high1)
-        out_3 = TiltWarp(x, self.upsample3(flow3))
-        out_2 = TiltWarp(out_3, self.upsample2(flow2))
-        out = TiltWarp(out_2, flow1)
-        return out_3, out_2, out
+
+        # keep grid_sample in fp32 for stability
+        orig_dtype = x.dtype
+        x_warp = x.float()
+
+        # only do warp if needed
+        if s3:
+            flow3_up = self.upsample3(flow3).float()
+            out_3 = TiltWarp(x_warp, flow3_up, interp_mode=self.interp_mode, padding_mode=self.padding_mode)
+        else:
+            out_3 = x_warp
+
+        if s2:
+            flow2_up = self.upsample2(flow2).float()
+            out_2 = TiltWarp(out_3, flow2_up, interp_mode=self.interp_mode, padding_mode=self.padding_mode)
+        else:
+            out_2 = out_3
+
+        if s1:
+            flow1 = flow1.float()
+            out = TiltWarp(out_2, flow1, interp_mode=self.interp_mode, padding_mode=self.padding_mode)
+        else:
+            out = out_2
+
+        # cast back
+        return out.to(orig_dtype)
 
 class UNet3D(nn.Module):
     # __                            __
@@ -265,7 +287,7 @@ class Deconv3D_Block(nn.Module):
     def forward(self, x):
         return self.deconv(x)
 
-def TiltWarp(x, flow, interp_mode='bicubic', padding_mode='reflection', align_corners=True, use_pad_mask=False):
+def TiltWarp(x, flow, interp_mode='bilinear', padding_mode='zeros', align_corners=True, use_pad_mask=False):
     """
     Args:
         x (Tensor): Tensor with size (b, n, c, h, w) -> (b*n, c, h, w).
@@ -281,20 +303,19 @@ def TiltWarp(x, flow, interp_mode='bicubic', padding_mode='reflection', align_co
     Returns:
         Tensor: Warped image or feature map.
     """
-    _, n, c, h, w = x.size()
-    x = x.reshape((-1, c, h, w))
-    
-    flow = flow.permute(0,2,3,4,1).reshape((-1, h, w, 2))
+    B, N, C, H, W = x.shape
+    x_flat = x.reshape(B * N, C, H, W)  # merge batch and time so grid_sample can work as (BN, C, H, W)
+    flow_flat = (flow.permute(0,2,3,4,1).reshape(B * N, H, W, 2))  # (BN, H, W, 2)
     # create mesh grid
-    grid_y, grid_x = torch.meshgrid(torch.arange(0, h, dtype=x.dtype, device=x.device), 
-                                    torch.arange(0, w, dtype=x.dtype, device=x.device), indexing='ij')
-    grid = torch.stack((grid_x, grid_y), 2).float()  # W(x), H(y), 2
-    grid.requires_grad = False
-    vgrid = grid + flow
+    grid_y, grid_x = torch.meshgrid(torch.arange(H, dtype=x_flat.dtype, device=x_flat.device),
+                                    torch.arange(W, dtype=x_flat.dtype, device=x_flat.device), indexing='ij')  # H, W are taken from the tensor's shape, so ONNX can track them.
+    grid = torch.stack((grid_x, grid_y), dim=2)                    # (H, W, 2)
+    vgrid = grid.unsqueeze(0) + flow_flat                          # (BN, H, W, 2)
 
-    vgrid_x = 2.0 * vgrid[:, :, :, 0] / max(w - 1, 1) - 1.0
-    vgrid_y = 2.0 * vgrid[:, :, :, 1] / max(h - 1, 1) - 1.0
-    vgrid_scaled = torch.stack((vgrid_x, vgrid_y), dim=3)
-    output = F.grid_sample(x, vgrid_scaled, mode=interp_mode, padding_mode=padding_mode, align_corners=align_corners)
-    output = output.reshape((-1, n, c, h, w))
+    vgrid_x = 2.0 * vgrid[..., 0] / (W - 1) - 1.0
+    vgrid_y = 2.0 * vgrid[..., 1] / (H - 1) - 1.0
+    vgrid_scaled = torch.stack((vgrid_x, vgrid_y), dim=-1)         # (BN, H, W, 2)
+    output_flat = F.grid_sample(x_flat, vgrid_scaled, mode=interp_mode, padding_mode=padding_mode, align_corners=align_corners)
+    output = output_flat.reshape(B, N, C, H, W)
     return output
+
