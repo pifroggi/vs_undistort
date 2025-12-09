@@ -34,20 +34,19 @@ __*`clip`*__
 Distorted clip. Must be in RGB format.
 
 __*`temp_window`*__  
-Temporal window length. Amount of frames to include in the calculation and size of chunks the clip will be processed in.  
-Larger means higher VRAM requirements, but better temporal averaging and slower distortions can be removed. If this is too small, some distortions may not get removed, small jumps/hitches may be visible between windows and seams from tile size may become more obvious.  
+Temporal window length. How many frames are grouped together and processed as a single chunk. Larger means higher VRAM requirements, but better temporal averaging and slower distortions can be removed. If this is too small, some distortions may not get removed, small jumps/hitches may be visible between windows and seams from tile size may become more obvious.
 
 __*`tile_width`*, *`tile_height`*__  
 Size of tiles to split the frames into. Must be a multiple of 16.  
-Larger means higher VRAM requirements, but better spatial averaging effect and larger distortions can be removed.
+Larger means higher VRAM requirements, but better spatial averaging and larger distortions can be removed.
 
 __*`overlap`*__  
-Overlap between tiles. Increase if seams are visible.  
+Overlap from one tile to the next. Increase if seams are visible.
 
 __*`interpolation`*__  
 Interpolation mode used for warping the frames.  
-"bilinear" is a bit faster, but slightly blurry.  
-"bicubic" is a bit slower and may oversharpen slightly, but no blur.
+Mode "bilinear" is a bit faster, but slightly blurry.  
+Mode "bicubic" is a bit slower and may oversharpen slightly, but no blur.
 
 __*`scales`*__  
 Sets which distortion scales should be fixed via `scales=[True, True, True]`, which stands for `[coarse, middle, fine]`. Set one or more to False to disable them. This is an experimental feature and may get removed if it turns out to be useless.
@@ -69,19 +68,20 @@ __*`clip`*__
 Distorted clip. Must be in RGBH format.
 
 __*`temp_window`*__  
-Temporal window length. Amount of frames to include in the calculation and size of chunks the clip will be processed in.  
-Larger means higher VRAM requirements, but better temporal averaging and slower distortions can be removed. If this is too small, some distortions may not get removed, small jumps/hitches may be visible between windows and seams from tile size may become more obvious.  
+Temporal window length. How many frames are grouped together and processed as a single chunk. Larger means higher VRAM requirements, but better temporal averaging and slower distortions can be removed. If this is too small, some distortions may not get removed, small jumps/hitches may be visible between windows and seams from tile size may become more obvious.
 
 __*`tile_width`*, *`tile_height`*__  
 Size of tiles to split the frames into. Must be a multiple of 16.  
-Larger means higher VRAM requirements, but better spatial averaging effect and larger distortions can be removed.
+Larger means higher VRAM requirements, but better spatial averaging and larger distortions can be removed.
 
 __*`overlap`*__  
-Overlap between tiles. Increase if seams are visible.  
+Overlap from one tile to the next. Increase if seams are visible.
 
 __*`num_streams`*__  
 How many streams to process in parallel. Higher can be faster, but requires more VRAM.
 
+<br />
+<br />
 <br />
 
 > [!TIP]
@@ -89,10 +89,12 @@ How many streams to process in parallel. Higher can be faster, but requires more
 > * If you have an undistorted reference clip, try to align to it with [vs_align](https://github.com/pifroggi/vs_align).
 > * If you see jumps/hitches between temporal windows, you can crossfade them with [vs_tiletools](https://github.com/pifroggi/vs_tiletools) like this:
 >   ```python
->   clip = vs_tiletools.window(clip, length=10, overlap=4)  # creates a crossfade of 4 frames
->   clip = vs_undistort(clip, temp_window=10)
->   clip = vs_tiletools.unwindow(clip, fade=True)
+>   clip = vs_tiletools.window(clip, length=10, overlap=4)  # creates a temporal overlap of 4 frames
+>   clip = vs_undistort.pytorch(clip, temp_window=10)
+>   clip = vs_tiletools.unwindow(clip, fade=True)  # uses the overlap to fade between temporal windows
 >   ```
+
+<br />
 
 ## Benchmarks
 
