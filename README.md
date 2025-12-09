@@ -9,14 +9,12 @@ This is a partial implementation of the [Turbulence Mitigation Transformer](http
     <img src="https://github.com/xg416/TMT/blob/main/figs/video_22.gif"/>
 </p>
 
-<br />
-
-## Requirements
+### Requirements
 * `pip install numpy` *(optional, only for pytorch backend)*
 * [pytorch with cuda](https://pytorch.org/) *(optional, only for pytorch backend)*
 * [vs-mlrt with tensorrt](https://github.com/AmusementClub/vs-mlrt) *(optional, only for tensorrt backend)*
 
-## Setup
+### Setup
 Put the entire `vs_undistort` folder into your vapoursynth scripts folder.  
 Or install via pip: `pip install -U git+https://github.com/pifroggi/vs_undistort.git`
 
@@ -36,22 +34,22 @@ Distorted clip. Must be in RGB format.
 __*`temp_window`*__  
 Temporal window length. How many frames are grouped together and processed as a single chunk. Larger means higher VRAM requirements, but better temporal averaging and slower distortions can be removed. If this is too small, some distortions may not get removed, small jumps/hitches may be visible between windows and seams from tile size may become more obvious.
 
-__*`tile_width`*, *`tile_height`*__  
+__*`tile_width`*, *`tile_height`* (optional)__  
 Size of tiles to split the frames into. Must be a multiple of 16.  
 Larger means higher VRAM requirements, but better spatial averaging and larger distortions can be removed.
 
-__*`overlap`*__  
+__*`overlap`* (optional)__  
 Overlap from one tile to the next. Increase if seams between tiles are visible.
 
-__*`interpolation`*__  
+__*`interpolation`* (optional)__  
 Interpolation mode used for warping the frames.  
 Mode "bilinear" is a bit faster, but slightly blurry.  
 Mode "bicubic" is a bit slower and may oversharpen slightly, but no blur.
 
-__*`scales`*__  
+__*`scales`* (optional)__  
 Sets which distortion scales should be fixed via `scales=[True, True, True]`, which stands for `[coarse, middle, fine]`. Set one or more to False to disable them. This is an experimental feature and may get removed if it turns out to be useless.
 
-__*`device`*__  
+__*`device`* (optional)__  
 Possible values are "cuda" to use with an Nvidia GPU, or "cpu". This will be extremely slow on CPU.
 
 <br />
@@ -70,14 +68,14 @@ Distorted clip. Must be in RGBH format.
 __*`temp_window`*__  
 Temporal window length. How many frames are grouped together and processed as a single chunk. Larger means higher VRAM requirements, but better temporal averaging and slower distortions can be removed. If this is too small, some distortions may not get removed, small jumps/hitches may be visible between windows and seams from tile size may become more obvious.
 
-__*`tile_width`*, *`tile_height`*__  
+__*`tile_width`*, *`tile_height`* (optional)__  
 Size of tiles to split the frames into. Must be a multiple of 16.  
 Larger means higher VRAM requirements, but better spatial averaging and larger distortions can be removed.
 
-__*`overlap`*__  
+__*`overlap`* (optional)__  
 Overlap from one tile to the next. Increase if seams between tiles are visible.
 
-__*`num_streams`*__  
+__*`num_streams`* (optional)__  
 How many streams to process in parallel. Higher can be faster, but requires more VRAM.
 
 <br />
