@@ -41,7 +41,7 @@ Size of tiles to split the frames into. Must be a multiple of 16.
 Larger means higher VRAM requirements, but better spatial averaging and larger distortions can be removed.
 
 __*`overlap`*__  
-Overlap from one tile to the next. Increase if seams are visible.
+Overlap from one tile to the next. Increase if seams between tiles are visible.
 
 __*`interpolation`*__  
 Interpolation mode used for warping the frames.  
@@ -75,7 +75,7 @@ Size of tiles to split the frames into. Must be a multiple of 16.
 Larger means higher VRAM requirements, but better spatial averaging and larger distortions can be removed.
 
 __*`overlap`*__  
-Overlap from one tile to the next. Increase if seams are visible.
+Overlap from one tile to the next. Increase if seams between tiles are visible.
 
 __*`num_streams`*__  
 How many streams to process in parallel. Higher can be faster, but requires more VRAM.
