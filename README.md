@@ -22,8 +22,8 @@ Or install via pip: `pip install -U git+https://github.com/pifroggi/vs_undistort
 
 <br />
 
-## Pytorch Backend
-The Pytorch backend offers more control and supports any CPU and Nvidia GPU, but is slower and requires more VRAM.
+## PyTorch Backend
+The PyTorch backend offers more control and supports any CPU and Nvidia GPU, but is slower and requires more VRAM.
 
 ```python
 import vs_undistort
@@ -82,11 +82,10 @@ How many streams to process in parallel. Higher can be faster, but requires more
 
 <br />
 <br />
-<br />
 
 > [!TIP]
 > * If you are getting *`RuntimeError: CUDA error: invalid argument`* you are likely running out of GPU memory. Try lowering the tile size or the temporal window length.
-> * If you have an undistorted reference clip, try to align to it with [vs_align](https://github.com/pifroggi/vs_align).
+> * If you have an undistorted reference clip, you can also try to align to it with [vs_align](https://github.com/pifroggi/vs_align).
 > * If you see jumps/hitches between temporal windows, you can crossfade them with [vs_tiletools](https://github.com/pifroggi/vs_tiletools) like this:
 >   ```python
 >   clip = vs_tiletools.window(clip, length=10, overlap=4)  # creates a temporal overlap of 4 frames
@@ -94,11 +93,9 @@ How many streams to process in parallel. Higher can be faster, but requires more
 >   clip = vs_tiletools.unwindow(clip, fade=True)  # uses the overlap to fade between temporal windows
 >   ```
 
-<br />
-
 ## Benchmarks
 
-| Hardware | Resolution  | Pytorch FPS | TensorRT FPS
+| Hardware | Resolution  | PyTorch FPS | TensorRT FPS
 | -------- | ----------- | ----------- | ------------
 | RTX 4090 | 720x480     | ~6.5 fps    | ~32 fps
 | RTX 4090 | 1440x1080   | ~1.5 fps    | ~7 fps
