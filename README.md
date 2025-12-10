@@ -1,9 +1,11 @@
 # Video Distortion Removal for VapourSynth
 Also known as atmospheric turbulance mitigation, warp stabilization, film shrink or VHS distortion fix, dewobble, dewiggle, detilt, rectification, heat haze removal. Can help with distortions from low bitrate compression or old codecs like MPEG2.
 
+This is a partial implementation of the [Turbulence Mitigation Transformer](https://github.com/xg416/TMT). (only distortion removal, no deblurring)
+
 This does not do general video stabilization for shaky footage, only removes distortions within the frames. It is recommented to stabilize first if needed.
 
-This is a partial implementation of the [Turbulence Mitigation Transformer](https://github.com/xg416/TMT). (only distortion removal, no deblurring)
+__Check out stinkybread's comparisons [here](https://kaizoku.pw/c/tezc1iieeHympQGQeWKl) and [here](https://kaizoku.pw/c/4HsCLWDxuFMNpOIdSNI8).__ (chrome recommended for smooth playback)
 
 <p align="center">
     <img src="https://github.com/xg416/TMT/blob/main/figs/video_22.gif"/>
