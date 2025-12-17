@@ -23,7 +23,7 @@ Or install via pip: `pip install -U git+https://github.com/pifroggi/vs_undistort
 <br />
 
 ## PyTorch Backend
-The PyTorch backend offers more control and supports any CPU and Nvidia GPU, but is slower and requires more VRAM.
+The PyTorch backend offers some extra control knobs and supports any CPU and Nvidia GPU, but is slower and requires more VRAM.
 
 ```python
 import vs_undistort
@@ -41,7 +41,7 @@ Size of tiles to split the frames into. Must be a multiple of 16.
 Larger means higher VRAM requirements, but better spatial averaging and larger distortions can be removed.
 
 __*`overlap`* (optional)__  
-Overlap from one tile to the next. Increase if seams between tiles are visible.
+Overlap from one tile to the next. Use if seams between tiles are visible.
 
 __*`interpolation`* (optional)__  
 Interpolation mode used for warping the frames.  
@@ -49,7 +49,7 @@ Mode "bilinear" is a bit faster, but slightly blurry.
 Mode "bicubic" is a bit slower and may oversharpen slightly, but no blur.
 
 __*`scales`* (optional)__  
-Sets which distortion scales should be fixed via `scales=[True, True, True]`, which stands for `[coarse, middle, fine]`. Set one or more to False to disable them. This is an experimental feature and may get removed if it turns out to be useless.
+Sets which distortion scales get fixed via `scales=[True, True, True]`, which stands for `[coarse, middle, fine]`. Set one or more to False to disable them. This is an experimental feature and may get removed if it turns out to be useless.
 
 __*`device`* (optional)__  
 Possible values are "cuda" to use with an Nvidia GPU, or "cpu". This will be extremely slow on CPU.
@@ -57,7 +57,7 @@ Possible values are "cuda" to use with an Nvidia GPU, or "cpu". This will be ext
 <br />
 
 ## TensorRT Backend
-The TensorRT backend is much faster and requires less VRAM, but lacks a few controls and requires an Nvidia RTX GPU. On the first run, it will automatically build an engine, which takes a few minutes. Changing tile size or temporal window length will trigger rebuilding, but engines with old settings are saved.
+The TensorRT backend is much faster and requires less VRAM, but lacks a few controls and requires an Nvidia RTX GPU. On the first run, it will automatically build an engine, which takes a few minutes. Changing tile size or temporal window length will trigger rebuilding, but previously build engines are saved for later.
 
 ```python
 import vs_undistort
@@ -71,11 +71,11 @@ __*`temp_window`*__
 Temporal window length. How many frames are grouped together and processed as a single chunk. Larger means higher VRAM requirements, but better temporal averaging and slower distortions can be removed. If this is too small, some distortions may not get removed, small jumps/hitches may be visible between windows and seams from tile size may become more obvious.
 
 __*`tile_width`*, *`tile_height`* (optional)__  
-Size of tiles to split the frames into. Must be a multiple of 16.  
+Size of tiles to split the frames into. Must be a multiple of 16. By default the full frame dimensions are used.  
 Larger means higher VRAM requirements, but better spatial averaging and larger distortions can be removed.
 
 __*`overlap`* (optional)__  
-Overlap from one tile to the next. Increase if seams between tiles are visible.
+Overlap from one tile to the next. Use if seams between tiles are visible.
 
 __*`num_streams`* (optional)__  
 How many streams to process in parallel. Higher can be faster, but requires more VRAM.
