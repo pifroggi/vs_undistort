@@ -96,7 +96,7 @@ def _get_engine(onnx_path, engine_dir, temp_window=10, width=720, height=480, fo
     ]
 
     try:
-        result = subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        result = subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding="locale", errors="replace")
     except subprocess.CalledProcessError as e:
         msg = (
             "vs_undistort.tensorrt: trtexec failed while building the TensorRT engine.\n"
