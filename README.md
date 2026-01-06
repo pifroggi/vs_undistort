@@ -84,14 +84,8 @@ How many streams to process in parallel. Higher can be faster, but requires more
 <br />
 
 > [!TIP]
-> * If you are getting *`RuntimeError: CUDA error: invalid argument`* you are likely running out of GPU memory. Try lowering the tile size or the temporal window length.
+> * If you see jumps/hitches between temporal windows, you can crossfade them with [vs_tiletools](https://github.com/pifroggi/vs_tiletools?tab=readme-ov-file#fix-jumpshitches-on-temporal-windowchunk-based-filters-via-crossfading).
 > * If you have an undistorted reference clip, you can also try to align to it with [vs_align](https://github.com/pifroggi/vs_align).
-> * If you see jumps/hitches between temporal windows, you can crossfade them with [vs_tiletools](https://github.com/pifroggi/vs_tiletools) like this:
->   ```python
->   clip = vs_tiletools.window(clip, length=10, overlap=4)  # creates a temporal overlap of 4 frames
->   clip = vs_undistort.pytorch(clip, temp_window=10)
->   clip = vs_tiletools.unwindow(clip, fade=True)  # uses the overlap to fade between temporal windows
->   ```
 
 ## Benchmarks
 
