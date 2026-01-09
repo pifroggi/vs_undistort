@@ -52,7 +52,7 @@ __*`scales`* (optional)__
 Sets which distortion scales get fixed via `scales=[True, True, True]`, which stands for `[coarse, middle, fine]`. Set one or more to False to disable them. This is an experimental feature and may get removed if it turns out to be useless.
 
 __*`device`* (optional)__  
-Possible values are "cuda" to use with an Nvidia GPU, or "cpu". This will be extremely slow on CPU.
+Can be "cuda" to use with an Nvidia GPU, or "cpu". This will be extremely slow on CPU.
 
 <br />
 
@@ -78,7 +78,7 @@ __*`overlap`* (optional)__
 Overlap from one tile to the next. Use if seams between tiles are visible.
 
 __*`num_streams`* (optional)__  
-How many streams to process in parallel. Higher can be faster, but requires more VRAM.
+How many streams to process in parallel. Higher can be a bit faster, but requires more VRAM.
 
 <br />
 <br />
