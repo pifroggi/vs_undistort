@@ -113,6 +113,23 @@ def _get_engine(onnx_path, engine_dir, temp_window=10, width=720, height=480, fo
 
 
 def tensorrt(clip, temp_window=10, tile_width=None, tile_height=None, overlap=None, num_streams=1):
+    """Removes distortions. The TensorRT backend is much faster and requires less VRAM, but lacks a few
+    controls and requires an Nvidia RTX GPU. On the first run, it will automatically build an engine, which takes a few minutes.
+    Changing tile size or temporal window length will trigger rebuilding, but previously build engines are saved for later.
+
+    Args:
+        clip: Distorted clip. Must be in RGBH format.
+        temp_window: Temporal window length. How many frames are grouped together and processed as a single chunk. Larger means
+            higher VRAM requirements, but better temporal averaging and slower distortions can be removed. If this is too small,
+            some distortions may not get removed, small jumps/hitches may be visible between windows and seams from tile size
+            may become more obvious.
+        tile_width: Width of tiles to split the frames into. Larger means higher VRAM requirements, but better spatial averaging
+            and larger distortions can be removed. Must be a multiple of 16. If `None`, the full frame width is used.
+        tile_height: Height of tiles to split the frames into. Larger means higher VRAM requirements, but better spatial averaging
+            and larger distortions can be removed. Must be a multiple of 16. If `None`, the full frame height is used.
+        overlap: Overlap from one tile to the next. Use if seams between tiles are visible.
+        num_streams: How many streams to process in parallel. Higher can be a bit faster, but requires more VRAM.
+    """
     
     # checks
     if not isinstance(clip, vs.VideoNode):
@@ -200,6 +217,29 @@ def tensorrt(clip, temp_window=10, tile_width=None, tile_height=None, overlap=No
 # pytorch code
 
 def pytorch(clip, temp_window=10, tile_width=None, tile_height=None, overlap=None, scales=[True, True, True], interpolation="bilinear", device="cuda"):
+    """Removes distortions. The PyTorch backend offers some extra control knobs and supports any CPU and
+    Nvidia GPU, but is slower and requires more VRAM.
+
+    Args:
+        clip: Distorted clip. Must be in RGB format.
+        temp_window: Temporal window length. How many frames are grouped together and processed as a single chunk. Larger means
+            higher VRAM requirements, but better temporal averaging and slower distortions can be removed. If this is too small,
+            some distortions may not get removed, small jumps/hitches may be visible between windows and seams from tile size
+            may become more obvious.
+        tile_width: Width of tiles to split the frames into. Larger means higher VRAM requirements, but better spatial averaging
+            and larger distortions can be removed. Must be a multiple of 16. If `None`, the full frame width is used.
+        tile_height: Height of tiles to split the frames into. Larger means higher VRAM requirements, but better spatial averaging
+            and larger distortions can be removed. Must be a multiple of 16. If `None`, the full frame height is used.
+        overlap: Overlap from one tile to the next. Use if seams between tiles are visible.
+        scales: Sets which distortion scales get fixed via `scales=[True, True, True]`, which stands for `[coarse, middle, fine]`.
+            Set one or more to `False` to disable them. This is an experimental feature and may get removed if it turns out to be
+            useless.
+        interpolation: Interpolation mode used for warping the frames.  
+            `bilinear` is a bit faster, but slightly blurry.  
+            `bicubic` is a bit slower and may oversharpen slightly, but no blur.
+        device: Can be `cuda` to use with an Nvidia GPU, or `cpu`. This will be extremely slow on CPU.
+    """
+    
     import torch
     import numpy as np
     from .TMT_dynamic_1st_stage import process_images
