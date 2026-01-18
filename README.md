@@ -57,7 +57,7 @@ Can be "cuda" to use with an Nvidia GPU, or "cpu". This will be extremely slow o
 <br />
 
 ## TensorRT Backend
-The TensorRT backend is much faster and requires less VRAM, but lacks a few controls and requires an Nvidia RTX GPU. On the first run, it will automatically build an engine, which takes a few minutes. Changing tile size or temporal window length will trigger rebuilding, but previously build engines are saved for later.
+The TensorRT backend is much faster and requires less VRAM, but only supports bilinear interpolation and requires an Nvidia RTX GPU. On the first run, it will automatically build an engine, which takes a few minutes. Changing tile size or temporal window length will trigger rebuilding, but previously build engines are saved for later.
 
 ```python
 import vs_undistort
