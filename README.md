@@ -37,7 +37,7 @@ __*`temp_window`*__
 Temporal window length. How many frames are grouped together and processed as a single chunk. Larger means higher VRAM requirements, but better temporal averaging and slower distortions can be removed. If this is too small, some distortions may not get removed, small jumps/hitches may be visible between windows and seams from tile size may become more obvious.
 
 __*`tile_width`*, *`tile_height`* (optional)__  
-Size of tiles to split the frames into. Must be a multiple of 16.  
+Size of tiles to split the frames into. Must be a multiple of 16. By default the full frame dimensions are used.  
 Larger means higher VRAM requirements, but better spatial averaging and larger distortions can be removed.
 
 __*`overlap`* (optional)__  
@@ -78,7 +78,7 @@ __*`overlap`* (optional)__
 Overlap from one tile to the next. Use if seams between tiles are visible.
 
 __*`num_streams`* (optional)__  
-How many streams to process in parallel. Higher can be a bit faster, but requires more VRAM.
+Number of parallel TensorRT streams. For high end GPUs higher can be faster, but requires more VRAM.
 
 <br />
 <br />
