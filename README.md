@@ -84,7 +84,7 @@ Number of parallel TensorRT streams. For high end GPUs higher can be faster, but
 <br />
 
 > [!TIP]
-> * If you see jumps/hitches between temporal windows, you can crossfade them with [vs_tiletools](https://github.com/pifroggi/vs_tiletools?tab=readme-ov-file#fix-jumpshitches-on-temporal-windowchunk-based-filters-via-crossfading).
+> * If you see jumps/hitches between temporal windows, you can crossfade them with [vs_tiletools](https://github.com/pifroggi/vs_tiletools?tab=readme-ov-file#fix-jumpshitches-on-chunktemporal-window-based-filters-via-crossfading).
 > * If you have an undistorted reference clip, you can also try to align to it with [vs_align](https://github.com/pifroggi/vs_align).
 
 ## Benchmarks
