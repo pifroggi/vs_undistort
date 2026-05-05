@@ -87,7 +87,7 @@ def _get_engine(onnx_path, engine_dir, temp_window=10, width=720, height=480, fo
         "--outputIOFormats=fp16:chw",
         "--skipInference",
         "--avgTiming=3",
-        "--memPoolSize=workspace:4096",
+        "--memPoolSize=workspace:6144",
         f"--onnx={onnx_path}",
         f"--saveEngine={engine_path}",
         f"--optShapes={opt_shapes}",
