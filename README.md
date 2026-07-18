@@ -14,7 +14,7 @@ Check out stinkybread's comparisons [here](https://kaizoku.pw/c/tezc1iieeHympQGQ
 ## Installation
 
 ```
-pip install -U vs_undistort
+pip install -U vs_undistort --extra-index-url https://pypi.nvidia.com/
 ```
 * To enable the CPU/CUDA backends, install [PyTorch with CUDA](https://pytorch.org/). *(optional)*
 <br />
@@ -40,7 +40,7 @@ __*`tiles`* (optional)__
 Amount of tiles to split the frames into. A higher amount reduces VRAM requirements, but also worsens spatial averaging. Default tiles=1 uses the full frame.
 
 __*`overlap`* (optional)__  
-Overlap from one tile to the next. Increase if seams between tiles are visible.
+Overlap from one tile to the next. Increase if seams between tiles are visible. Does nothing when tiles=1.
 
 __*`interpolation`* (optional)__  
 The interpolation mode used to warp the frames:
