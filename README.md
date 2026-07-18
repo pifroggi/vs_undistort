@@ -19,7 +19,7 @@ pip install -U vs_undistort
 * To enable the CPU/CUDA backends, install [PyTorch with CUDA](https://pytorch.org/). *(optional)*
 <br />
 
-For older vapoursynth versions below R74, follow the manual installation steps [here](https://github.com/pifroggi/vs_temporalfix/wiki/Manual-Installation).
+For older vapoursynth versions below R74, follow the manual installation steps [here](https://github.com/pifroggi/vs_undistort/wiki/Manual-Installation).
 
 <br />
 
