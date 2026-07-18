@@ -27,20 +27,20 @@ For older vapoursynth versions below R74, follow the manual installation steps [
 
 ```python
 from vs_undistort import vs_undistort
-clip = vs_undistort(clip, temp_window=10, tiles=1, overlap=16, interpolation="bicubic", backend="tensorrt", num_streams=1, engine_folder=None)
+clip = vs_undistort(clip, temp_window=10, tiles=1, overlap=8, interpolation="bicubic", backend="tensorrt", num_streams=1, engine_folder=None)
 ```
 
 __*`clip`*__  
 Distorted clip. Must be in RGBH format.
 
 __*`temp_window`*__  
-Temporal window length. How many frames are grouped together and processed as a single chunk. Larger means higher VRAM requirements, but better temporal averaging and slower distortions can be removed. If this is too small, some distortions may not get removed, small jumps/hitches may be visible between windows and seams from tile size may become more obvious.
+Temporal window length. How many frames are grouped together and processed as a single chunk. Larger means higher VRAM requirements, but better temporal averaging and slower distortions can be removed. If this is too small, some distortions may not get removed, small jumps/hitches may be visible between windows and seams from tiling may become more obvious.
 
 __*`tiles`* (optional)__  
 Amount of tiles to split the frames into. Must be 1, 2, 4, 6, 8, 12, 16, 24, or 32. A higher amount reduces VRAM requirements, but also reduces spatial averaging and the size of distortions that can be removed.
 
 __*`overlap`* (optional)__  
-Overlap from one tile to the next. Use if seams between tiles are visible.
+Overlap from one tile to the next. Increase if seams between tiles are visible.
 
 __*`interpolation`* (optional)__  
 The interpolation mode used to warp the frames:
@@ -51,7 +51,7 @@ __*`backend`* (optional)__
 The backend used to run the model:
 * `cpu` CPU mode using PyTorch *(very slow)*.
 * `cuda` GPU mode using PyTorch with CUDA support. Requires any Nvidia GPU *(fast)*.
-* `tensorrt` GPU mode using vs-mlrt with TensorRT support. Requires an Nvidia RTX GPU. On the first run, this mode will automatically build an engine, which may take a few minutes. Changing interpolation, temp_window, or tile size will trigger rebuilding, but previously build engines are stored *(very fast/low vram)*.
+* `tensorrt` GPU mode using vs-mlrt with TensorRT support. Requires an Nvidia RTX GPU. On the first run, this mode will automatically build an engine, which may take a few minutes. Changing interpolation, temp_window, or input dimensions will trigger rebuilding, but previously build engines are stored *(very fast/low vram)*.
 
 __*`num_streams`* (optional)__  
 Number of parallel TensorRT streams. For high end GPUs higher can be a bit faster, but requires more VRAM. Only affects the TensorRT backend.

@@ -15,7 +15,7 @@ from .utils import get_window, get_tiles, expression
 core = vs.core
 
 
-def _pytorch(clip, temp_window=10, tiles=1, overlap=16, interpolation="bicubic", device="cuda"):
+def _pytorch(clip, temp_window=10, tiles=1, overlap=8, interpolation="bicubic", device="cuda"):
     import threading
     import numpy as np
     from collections import OrderedDict
@@ -126,7 +126,7 @@ def _pytorch(clip, temp_window=10, tiles=1, overlap=16, interpolation="bicubic",
     if tile_w < 128 or tile_h < 128:
         raise ValueError("vs_undistort: Tile size must be at least 128 x 128. Reduce tiles.")
     if tiles > 1 and overlap > min(tile_w, tile_h) // 2:
-        raise ValueError("vs_undistort: Overlap can not be larger than half of tile size.")
+        raise ValueError("vs_undistort: Overlap can not be larger than half of tile size. Reduce overlap.")
     
     # inference
     offset_clips   = get_window(clip, temp_window)
@@ -357,7 +357,7 @@ def _tensorrt_inference(input_clips, onnx_path, engine_dir, temp_window, tile_w,
     return out
 
 
-def _tensorrt(clip, temp_window=10, tiles=1, overlap=16, interpolation="bicubic", num_streams=1, engine_folder=None):
+def _tensorrt(clip, temp_window=10, tiles=1, overlap=8, interpolation="bicubic", num_streams=1, engine_folder=None):
     
     # checks
     if not isinstance(clip, vs.VideoNode):
@@ -396,7 +396,7 @@ def _tensorrt(clip, temp_window=10, tiles=1, overlap=16, interpolation="bicubic"
     if tile_w < 128 or tile_h < 128:
         raise ValueError("vs_undistort: Tile size must be at least 128 x 128. Reduce tiles.")
     if tiles > 1 and overlap > min(tile_w, tile_h) // 2:
-        raise ValueError("vs_undistort: Overlap can not be larger than half of tile size.")
+        raise ValueError("vs_undistort: Overlap can not be larger than half of tile size. Reduce overlap.")
 
     # make sure the extremely slow engine isn't build due to some tensorrt tactic limitations
     cur_pixels = temp_window * tile_w * tile_h
@@ -449,14 +449,14 @@ def _tensorrt(clip, temp_window=10, tiles=1, overlap=16, interpolation="bicubic"
     return core.std.CopyFrameProps(unstacked_clip, clip)
 
 
-def vs_undistort(clip, temp_window=10, tiles=1, overlap=16, interpolation="bicubic", backend="tensorrt", num_streams=1, engine_folder=None):
+def vs_undistort(clip, temp_window=10, tiles=1, overlap=8, interpolation="bicubic", backend="tensorrt", num_streams=1, engine_folder=None):
     """Removes distortions. Also known as atmospheric turbulence mitigation, warp stabilization, film shrink or VHS distortion fix, heat haze removal.
 
     Args:
         clip: Distorted clip. Must be in RGB format.
         temp_window: Temporal window length. This is how many frames are grouped together and processed as a single chunk. Larger means
             higher VRAM requirements, but better temporal averaging and slower distortions can be removed. If this is too small,
-            some distortions may not get removed, small jumps/hitches may be visible between windows and seams from tile size
+            some distortions may not get removed, small jumps/hitches may be visible between windows and seams from tiling
             may become more obvious.
         tiles: Amount of tiles to split the frames into. Must be 1, 2, 4, 6, 8, 12, 16, 24, or 32. A higher amount reduces VRAM requirements,
             but also reduces spatial averaging and the size of distortions that can be removed.
