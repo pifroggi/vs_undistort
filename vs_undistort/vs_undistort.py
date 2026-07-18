@@ -458,8 +458,8 @@ def vs_undistort(clip, temp_window=10, tiles=1, overlap=8, interpolation="bicubi
             higher VRAM requirements, but better temporal averaging and slower distortions can be removed. If this is too small,
             some distortions may not get removed, small jumps/hitches may be visible between windows and seams from tiling
             may become more obvious.
-        tiles: Amount of tiles to split the frames into. Must be 1, 2, 4, 6, 8, 12, 16, 24, or 32. A higher amount reduces VRAM requirements,
-            but also reduces spatial averaging and the size of distortions that can be removed.
+        tiles: Amount of tiles to split the frames into. A higher amount reduces VRAM requirements, but also worsens spatial averaging.
+            Default `tiles=1` uses the full frame.
         overlap: Overlap from one tile to the next. Use if seams between tiles are visible.
         interpolation: Interpolation mode used to warp the frames.  
             - `bilinear` = More blurry.

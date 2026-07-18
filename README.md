@@ -37,7 +37,7 @@ __*`temp_window`*__
 Temporal window length. How many frames are grouped together and processed as a single chunk. Larger means higher VRAM requirements, but better temporal averaging and slower distortions can be removed. If this is too small, some distortions may not get removed, small jumps/hitches may be visible between windows and seams from tiling may become more obvious.
 
 __*`tiles`* (optional)__  
-Amount of tiles to split the frames into. Must be 1, 2, 4, 6, 8, 12, 16, 24, or 32. A higher amount reduces VRAM requirements, but also reduces spatial averaging and the size of distortions that can be removed.
+Amount of tiles to split the frames into. A higher amount reduces VRAM requirements, but also worsens spatial averaging. Default tiles=1 uses the full frame.
 
 __*`overlap`* (optional)__  
 Overlap from one tile to the next. Increase if seams between tiles are visible.
