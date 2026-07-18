@@ -1,21 +1,40 @@
 [build-system]
-requires = ["setuptools", "wheel"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling>=1.27.0"]
+build-backend = "hatchling.build"
 
 [project]
 name = "vs_undistort"
-version = "2.1.0"
-description = "Vapoursynth function to remove video distortions, turbulance, wobble, warp, heat haze, or similar."
+version = "2.2.0"
+description = "Vapoursynth function to remove video distortions, turbulence, wobble, warp, heat haze, or similar."
+readme = "README.md"
+requires-python = ">=3.12"
 authors = [{ name = "pifroggi" }]
 
+keywords = [
+	"vapoursynth",
+	"video",
+	"distortion",
+	"turbulence",
+	"heat haze",
+	"wobble",
+	"rectification",
+	"filtering",
+	"restoration"
+]
+
+classifiers = [
+	"Programming Language :: Python :: 3",
+	"Topic :: Multimedia :: Video"
+]
+
 dependencies = [
-	"torch",
+	"vapoursynth>=74",
+    "vapoursynth-mlrt-trt>=16.0",
+    "tensorrt-cu13>=11.1.0.106",
     "numpy"
 ]
 
-[tool.setuptools.package-data]
-vs_undistort = ["*.pth", "*.onnx"]
-
 [project.urls]
-Home-page = "https://github.com/pifroggi/vs_undistort"
+Homepage = "https://github.com/pifroggi/vs_undistort"
 Repository = "https://github.com/pifroggi/vs_undistort"
+Issues = "https://github.com/pifroggi/vs_undistort/issues"

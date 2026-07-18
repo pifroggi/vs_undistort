@@ -1,7 +1,5 @@
 # Code from "Turbulence Mitigation Transformer" https://github.com/xg416/TMT
 
-# Vapoursynth Implementation by pifroggi https://github.com/pifroggi/vs_undistort
-# or tepete and pifroggi on Discord
 
 import torch
 import torch.nn as nn
