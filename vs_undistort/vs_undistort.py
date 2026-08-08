@@ -282,13 +282,13 @@ def _build_engine_python(onnx_path, engine_path, temp_window, engine_w, engine_h
     
     # settings
     opt_shapes = (1, temp_window * 3, engine_h, engine_w)                                                             # optShapes
+    min_shapes = (1, temp_window * 3, engine_h, engine_w-16)                                                          # minShapes
     network.get_input(0).allowed_formats = network.get_output(0).allowed_formats = 1 << int(trt.TensorFormat.LINEAR)  # IOFormats:chw
-    config.set_memory_pool_limit(trt.MemoryPoolType.WORKSPACE, 6144 << 20)                                            # workspace
     config.builder_optimization_level = 3                                                                             # builderOptimizationLevel
 
     # build
     profile = builder.create_optimization_profile()
-    profile.set_shape(network.get_input(0).name, opt_shapes, opt_shapes, opt_shapes)
+    profile.set_shape(network.get_input(0).name, min_shapes, opt_shapes, opt_shapes)
     config.add_optimization_profile(profile)
     engine  = builder.build_serialized_network(network, config)
     if engine is None:
