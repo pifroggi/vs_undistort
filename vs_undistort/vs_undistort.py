@@ -204,23 +204,27 @@ def _get_builder(plugin_path, trt_version, cuda_major):
 
 
 def _build_engine_trtexec(onnx_path, engine_path, temp_window, engine_w, engine_h, interpolation, trt_version, trtexec_path):
+    from cuda.bindings import runtime
     # build engine using trtexec, supports trt 10 and 11
 
     # settings
     opt_shapes = f"input:1x{temp_window * 3}x{engine_h}x{engine_w}"
+    min_shapes = f"input:1x{temp_window * 3}x{engine_h}x{engine_w - 16}"  # fix large static engine sizes due to storing constants
     io_formats = f"fp16:chw" if trt_version[0] < 11 else "chw"
     cmd = [
         str(trtexec_path),
         *(["--stronglyTyped"] if trt_version[0] < 11 else []),
         *(["--markDebug=grid_sampler,grid_sampler_1"] if interpolation == "bicubic" else []),  # part of gridsample bicubic workaround
+        *(["--memPoolSize=workspace:6144"] if interpolation != "bicubic" or runtime.cudaGetDeviceProperties(runtime.cudaGetDevice()[1])[1].major < 12 else []),  # fix 50 series, dynamic shapes needed too
         "--skipInference",
-        "--memPoolSize=workspace:6144",
         "--builderOptimizationLevel=3",
         f"--inputIOFormats={io_formats}",
         f"--outputIOFormats={io_formats}",
         f"--onnx={onnx_path}",
         f"--saveEngine={engine_path}",
+        f"--minShapes={min_shapes}",
         f"--optShapes={opt_shapes}",
+        f"--maxShapes={opt_shapes}",
     ]
 
     # build
@@ -241,6 +245,7 @@ def _build_engine_trtexec(onnx_path, engine_path, temp_window, engine_w, engine_
 
 def _build_engine_python(onnx_path, engine_path, temp_window, engine_w, engine_h, interpolation, trt_package):
     # build engine using tensorrt python package, supports only trt 11 because of vapoursynth-mlrt-trt
+    from cuda.bindings import runtime
     trt = trt_package
 
     # custom logger for errors
@@ -282,9 +287,11 @@ def _build_engine_python(onnx_path, engine_path, temp_window, engine_w, engine_h
     
     # settings
     opt_shapes = (1, temp_window * 3, engine_h, engine_w)                                                             # optShapes
-    min_shapes = (1, temp_window * 3, engine_h, engine_w-16)                                                          # minShapes
+    min_shapes = (1, temp_window * 3, engine_h, engine_w - 16)                                                        # minShapes
     network.get_input(0).allowed_formats = network.get_output(0).allowed_formats = 1 << int(trt.TensorFormat.LINEAR)  # IOFormats:chw
     config.builder_optimization_level = 3                                                                             # builderOptimizationLevel
+    if interpolation != "bicubic" or runtime.cudaGetDeviceProperties(runtime.cudaGetDevice()[1])[1].major < 12:       # fix 50 series, dynamic shapes needed too
+        config.set_memory_pool_limit(trt.MemoryPoolType.WORKSPACE, 6144 << 20)                                        # workspace
 
     # build
     profile = builder.create_optimization_profile()
