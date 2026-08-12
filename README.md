@@ -16,10 +16,12 @@ Check out stinkybread's comparisons [here](https://kaizoku.pw/c/tezc1iieeHympQGQ
 ```
 pip install -U vs_undistort --extra-index-url https://pypi.nvidia.com/
 ```
-* To enable the CPU/CUDA backends, install [PyTorch with CUDA](https://pytorch.org/). *(optional)*
+To enable the CPU/CUDA backends, install [PyTorch with CUDA](https://pytorch.org/get-started/locally/). *(optional)*    
+
 <br />
 
-For older vapoursynth versions below R74, follow the manual installation steps [here](https://github.com/pifroggi/vs_undistort/wiki/Manual-Installation).
+> [!TIP]
+> For VapourSynth R73 and older, follow the [manual installation steps](https://github.com/pifroggi/vs_undistort/wiki/Manual-Installation).
 
 <br />
 
@@ -27,7 +29,7 @@ For older vapoursynth versions below R74, follow the manual installation steps [
 
 ```python
 from vs_undistort import vs_undistort
-clip = vs_undistort(clip, temp_window=10, tiles=1, overlap=8, interpolation="bicubic", backend="tensorrt", num_streams=1, engine_folder=None)
+clip = vs_undistort(clip, temp_window=10, window_overlap=0, interpolation="bicubic", backend="tensorrt", tiles=1, overlap=8, engine_folder=None)
 ```
 
 __*`clip`*__  
@@ -36,11 +38,8 @@ Distorted clip. Must be in RGBH format.
 __*`temp_window`*__  
 Temporal window length. How many frames are grouped together and processed as a single chunk. Larger means higher VRAM requirements, but better temporal averaging and slower distortions can be removed. If this is too small, some distortions may not get removed, small jumps/hitches may be visible between windows and seams from tiling may become more obvious.
 
-__*`tiles`* (optional)__  
-Amount of tiles to split the frames into. A higher amount reduces VRAM requirements, but also worsens spatial averaging. Default tiles=1 uses the full frame.
-
-__*`overlap`* (optional)__  
-Overlap from one tile to the next. Increase if seams between tiles are visible. Does nothing when tiles=1.
+__*`window_overlap`* (optional)__  
+Overlap between temporal windows. Larger is slower. Increase if jumps/hitches between windows are noticeable.
 
 __*`interpolation`* (optional)__  
 The interpolation mode used to warp the frames:
@@ -49,12 +48,15 @@ The interpolation mode used to warp the frames:
 
 __*`backend`* (optional)__  
 The backend used to run the model:
-* `cpu` CPU mode using PyTorch *(very slow)*.
-* `cuda` GPU mode using PyTorch with CUDA support. Requires any Nvidia GPU *(fast)*.
-* `tensorrt` GPU mode using vs-mlrt with TensorRT support. Requires an Nvidia RTX GPU. On the first run, this mode will automatically build an engine, which may take a few minutes. Changing interpolation, temp_window, or input dimensions will trigger rebuilding, but previously build engines are stored *(very fast/low vram)*.
+* `cpu` CPU mode *(very slow)*.
+* `cuda` GPU mode using CUDA. Requires any Nvidia GPU *(fast)*.
+* `tensorrt` GPU mode using TensorRT. Requires an Nvidia RTX GPU. On the first run, this mode will automatically build an engine, which may take a few minutes. Changing interpolation, temp_window, or input dimensions will trigger rebuilding, but previously build engines are stored *(very fast, low vram)*.
 
-__*`num_streams`* (optional)__  
-Number of parallel TensorRT streams. For high end GPUs higher can be a bit faster, but requires more VRAM. Only affects the TensorRT backend.
+__*`tiles`* (optional)__  
+Amount of tiles to split the frames into. A higher amount reduces VRAM requirements, but also worsens spatial averaging. Default tiles=1 uses the full frame.
+
+__*`overlap`* (optional)__  
+Overlap from one tile to the next. Increase if seams between tiles are visible. Does nothing when tiles=1.
 
 __*`engine_folder`* (optional)__  
 Optional path to the TensorRT engine storage location. By default engines are stored in `vs_undistort/engines`. Only affects the TensorRT backend.
