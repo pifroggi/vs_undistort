@@ -1,13 +1,11 @@
 # Video Distortion Removal for VapourSynth
-Also known as dewobble, warp stabilization, film or VHS distortion fix, rectification, atmospheric turbulence mitigation, or heat haze removal.
+Also known as dewobble, warp stabilization, film or VHS distortion fix, atmospheric turbulence mitigation, or heat haze removal.
 
-This is a partial implementation of the [Turbulence Mitigation Transformer](https://github.com/xg416/TMT) (only distortion removal, no deblurring). It does not do general video stabilization for shaky footage, only removes distortions within the frames. It is recommented to stabilize first if needed.
+This is a partial implementation of the [Turbulence Mitigation Transformer](https://github.com/xg416/TMT) (only distortion removal, no deblurring). It does not do general video stabilization for shaky footage, only removes distortions within the frames. It is recommented to stabilize first if needed. Thanks to stinkybread for the comparison clips.
 
-Check out stinkybread's comparisons [here](https://kaizoku.pw/c/tezc1iieeHympQGQeWKl) and [here](https://kaizoku.pw/c/4HsCLWDxuFMNpOIdSNI8).
+<br />
 
-<p align="center">
-    <img src="https://github.com/xg416/TMT/blob/main/figs/video_22.gif"/>
-</p>
+https://github.com/user-attachments/assets/ee81cc24-493b-4476-bfd0-3b255122a3a8
 
 <br />
 
@@ -62,8 +60,8 @@ __*`engine_folder`* (optional)__
 Optional path to the TensorRT engine storage location. By default engines are stored in `vs_undistort/engines`. Only affects the TensorRT backend.
 
 > [!TIP]
-> * If you see jumps/hitches between temporal windows, you can crossfade them with [vs_tiletools](https://github.com/pifroggi/vs_tiletools?tab=readme-ov-file#fix-jumpshitches-on-chunktemporal-window-based-filters-via-crossfading).
 > * If you have an undistorted reference clip, you can also try to align to it with [vs_align](https://github.com/pifroggi/vs_align).
+> * If window_overlap does not sufficiently remove jumps/hitches, you can instead try to crossfade with the insert/trim overlaps functions in [vs_tiletools](https://github.com/pifroggi/vs_tiletools?tab=readme-ov-file#fix-jumpshitches-on-chunktemporal-window-based-filters-via-crossfading).
 
 <br />
 
