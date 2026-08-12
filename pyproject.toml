@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "vs_undistort"
-version = "2.2.0"
-description = "Vapoursynth function to remove video distortions, turbulence, wobble, warp, heat haze, or similar."
+version = "2.3.0"
+description = "Distortion, wobble, warp, turbulance, or heat haze removal for VapourSynth."
 readme = "README.md"
 requires-python = ">=3.12"
 authors = [{ name = "pifroggi" }]
@@ -18,13 +18,15 @@ keywords = [
 	"heat haze",
 	"wobble",
 	"rectification",
+	"restoration",
 	"filtering",
-	"restoration"
+	"tensorrt",
 ]
 
 classifiers = [
 	"Programming Language :: Python :: 3",
-	"Topic :: Multimedia :: Video"
+	"Topic :: Multimedia :: Video",
+    "Environment :: GPU",
 ]
 
 dependencies = [
