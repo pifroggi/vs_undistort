@@ -30,6 +30,41 @@ def get_window(clip, temp_window):
     return [core.std.SelectEvery(clip[i:], cycle=temp_window, offsets=[0]) for i in range(temp_window)]
 
 
+def trim_overlaps(clip, full_length, temp_window, window_overlap):
+    if window_overlap == 0 or clip.num_frames <= temp_window:
+        return clip[:full_length]
+    remaining = core.std.SelectEvery(clip[temp_window:], cycle=temp_window, offsets=list(range(window_overlap, temp_window)), modify_duration=False)
+    return core.std.Splice([clip[:temp_window], remaining])[:full_length]
+
+
+def insert_overlaps(clip, temp_window, window_overlap):
+    stride = temp_window - window_overlap
+    length = clip.num_frames
+
+    if window_overlap == 0:
+        return clip
+    if length <= temp_window:
+        return clip
+
+    window_count = 1 + (length - window_overlap - 1) // stride
+    phases = []
+
+    if stride == 1:  # selectevery requires cycle > 1
+        phases = [clip[offset:] for offset in range(temp_window)]
+    else:
+        for offset in range(temp_window):
+            phase = core.std.SelectEvery(clip, cycle=stride, offsets=offset % stride, modify_duration=False)
+            skip = offset // stride
+            if skip:
+                phase = phase[skip:]
+            phases.append(phase)
+
+    overlapped = core.std.Interleave(phases, modify_duration=False)
+    last_start = (window_count - 1) * stride
+    output_length = (window_count - 1) * temp_window + min(temp_window, length - last_start)
+    return overlapped[:output_length]
+
+
 def get_tiles(clip_w, clip_h, tiles, overlap=0):
     # calculate tile size and choose the most square layout
     if tiles not in (1, 2, 4, 6, 8, 12, 16, 24, 32):
