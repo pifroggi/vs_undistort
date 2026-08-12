@@ -10,15 +10,13 @@ import logging
 import subprocess
 import vapoursynth as vs
 from pathlib import Path
-from .utils import get_window, get_tiles, expression
+from .utils import get_window, get_tiles, insert_overlaps, trim_overlaps, expression
 
 core = vs.core
 
 
-def _pytorch(clip, temp_window=10, tiles=1, overlap=8, interpolation="bicubic", device="cuda"):
-    import threading
+def _pytorch(clip, temp_window=10, window_overlap=0, interpolation="bicubic", tiles=1, overlap=8, device="cuda"):
     import numpy as np
-    from collections import OrderedDict
 
     if device == "cpu":
         try:
@@ -37,6 +35,15 @@ def _pytorch(clip, temp_window=10, tiles=1, overlap=8, interpolation="bicubic", 
     from .utils import inference_tiled
     from .models.UNet3d_TMT_arch import DetiltUNet3DS
     os.environ["CUDA_MODULE_LOADING"] = "LAZY"
+
+    def _empty_cuda_cache():
+        nonlocal model_tilt
+        model_tilt = None
+        try:
+            if torch.cuda.is_initialized():
+                torch.cuda.empty_cache()
+        except Exception:
+            pass
 
     def _frames_to_tensor(frames, device, tile_device, fp16=False):
         temp_window = len(frames)
@@ -92,6 +99,10 @@ def _pytorch(clip, temp_window=10, tiles=1, overlap=8, interpolation="bicubic", 
         raise TypeError("vs_undistort: Temporal window length must be an integer.")
     if temp_window < 2:
         raise ValueError("vs_undistort: Temporal window length must be at least 2.")
+    if not isinstance(window_overlap, int) or isinstance(window_overlap, bool):
+        raise TypeError("vs_undistort: Window overlap must be an integer.")
+    if window_overlap < 0 or window_overlap >= temp_window:
+        raise ValueError("vs_undistort: Window overlap can not be negative and must be smaller than temporal window length.")
     if not isinstance(tiles, int) or isinstance(tiles, bool):
         raise TypeError("vs_undistort: Tiles must be an integer.")
     if not isinstance(overlap, int) or isinstance(overlap, bool):
@@ -129,12 +140,15 @@ def _pytorch(clip, temp_window=10, tiles=1, overlap=8, interpolation="bicubic", 
         raise ValueError("vs_undistort: Overlap can not be larger than half of tile size. Reduce overlap.")
     
     # inference
-    offset_clips   = get_window(clip, temp_window)
-    out_shape      = core.std.BlankClip(clip=offset_clips[0], width=width * temp_window, height=height, keep=True)
-    stacked_clip   = core.std.ModifyFrame(out_shape, clips=[out_shape, *offset_clips], selector=_pytorch_inference)
-    offset_clips   = [core.std.Crop(stacked_clip, left=i * width, right=(temp_window - 1 - i) * width) for i in range(temp_window)]
-    unstacked_clip = core.std.Interleave(offset_clips)
+    overlap_clip   = insert_overlaps(clip, temp_window, window_overlap)
+    input_clips    = get_window(overlap_clip, temp_window)
+    out_shape      = core.std.BlankClip(clip=input_clips[0], width=width * temp_window, height=height, keep=True)
+    stacked_clip   = core.std.ModifyFrame(out_shape, clips=[out_shape, *input_clips], selector=_pytorch_inference)
+    output_clips   = [core.std.Crop(stacked_clip, left=i * width, right=(temp_window - 1 - i) * width) for i in range(temp_window)]
+    unstacked_clip = core.std.Interleave(output_clips)
+    unstacked_clip = trim_overlaps(unstacked_clip, clip.num_frames, temp_window, window_overlap)
     
+    # convert back, crop, trim
     if unstacked_clip.format.id != orig_format:
         unstacked_clip = core.resize.Point(unstacked_clip, format=orig_format)
     if pad_w or pad_h:
@@ -142,6 +156,11 @@ def _pytorch(clip, temp_window=10, tiles=1, overlap=8, interpolation="bicubic", 
     if unstacked_clip.num_frames != clip.num_frames:
         unstacked_clip = core.std.Trim(unstacked_clip, last=clip.num_frames - 1)
     
+    # free cache on destroy so reloading previewers doesn't cause issues 
+    if device.type == "cuda":
+        vs.register_on_destroy(_empty_cuda_cache)
+    
+    # copy props and return
     return core.std.CopyFrameProps(unstacked_clip, clip)
 
 
@@ -208,14 +227,15 @@ def _build_engine_trtexec(onnx_path, engine_path, temp_window, engine_w, engine_
     # build engine using trtexec, supports trt 10 and 11
 
     # settings
+    bic50 = interpolation == "bicubic" and runtime.cudaGetDeviceProperties(runtime.cudaGetDevice()[1])[1].major >= 12  # 50 series gpu + bicubic needs workaround
     opt_shapes = f"input:1x{temp_window * 3}x{engine_h}x{engine_w}"
-    min_shapes = f"input:1x{temp_window * 3}x{engine_h}x{engine_w - 16}"  # fix large static engine sizes due to storing constants
+    min_shapes = f"input:1x{temp_window * 3}x{engine_h}x{engine_w - 8 if trt_version >= [11, 2, 0] or bic50 else engine_w}"  # needed for 50 series or trt 11.2
     io_formats = f"fp16:chw" if trt_version[0] < 11 else "chw"
     cmd = [
         str(trtexec_path),
         *(["--stronglyTyped"] if trt_version[0] < 11 else []),
         *(["--markDebug=grid_sampler,grid_sampler_1"] if interpolation == "bicubic" else []),  # part of gridsample bicubic workaround
-        *(["--memPoolSize=workspace:6144"] if interpolation != "bicubic" or runtime.cudaGetDeviceProperties(runtime.cudaGetDevice()[1])[1].major < 12 else []),  # fix 50 series, dynamic shapes needed too
+        *(["--memPoolSize=workspace:6144"] if not bic50 else []),                              # fix 50 series, dynamic shapes needed too
         "--skipInference",
         "--builderOptimizationLevel=3",
         f"--inputIOFormats={io_formats}",
@@ -243,7 +263,7 @@ def _build_engine_trtexec(onnx_path, engine_path, temp_window, engine_w, engine_
         raise RuntimeError(msg) from e
 
 
-def _build_engine_python(onnx_path, engine_path, temp_window, engine_w, engine_h, interpolation, trt_package):
+def _build_engine_python(onnx_path, engine_path, temp_window, engine_w, engine_h, interpolation, trt_version, trt_package):
     # build engine using tensorrt python package, supports only trt 11 because of vapoursynth-mlrt-trt
     from cuda.bindings import runtime
     trt = trt_package
@@ -286,16 +306,17 @@ def _build_engine_python(onnx_path, engine_path, temp_window, engine_w, engine_h
                     network.mark_debug(tensor)                         
     
     # settings
-    opt_shapes = (1, temp_window * 3, engine_h, engine_w)                                                             # optShapes
-    min_shapes = (1, temp_window * 3, engine_h, engine_w - 16)                                                        # minShapes
-    network.get_input(0).allowed_formats = network.get_output(0).allowed_formats = 1 << int(trt.TensorFormat.LINEAR)  # IOFormats:chw
-    config.builder_optimization_level = 3                                                                             # builderOptimizationLevel
-    if interpolation != "bicubic" or runtime.cudaGetDeviceProperties(runtime.cudaGetDevice()[1])[1].major < 12:       # fix 50 series, dynamic shapes needed too
-        config.set_memory_pool_limit(trt.MemoryPoolType.WORKSPACE, 6144 << 20)                                        # workspace
+    bic50 = interpolation == "bicubic" and runtime.cudaGetDeviceProperties(runtime.cudaGetDevice()[1])[1].major >= 12  # 50 series gpu + bicubic needs workaround
+    opt_shapes = (1, temp_window * 3, engine_h, engine_w)                                                              # optShapes
+    min_shapes = (1, temp_window * 3, engine_h, engine_w - 8 if trt_version >= [11, 2, 0] or bic50 else engine_w)      # minShapes needed for 50 series or trt 11.2
+    network.get_input(0).allowed_formats = network.get_output(0).allowed_formats = 1 << int(trt.TensorFormat.LINEAR)   # IOFormats:chw
+    config.builder_optimization_level = 3                                                                              # builderOptimizationLevel
+    if not bic50:
+        config.set_memory_pool_limit(trt.MemoryPoolType.WORKSPACE, 6144 << 20)                                         # workspace
 
     # build
     profile = builder.create_optimization_profile()
-    profile.set_shape(network.get_input(0).name, min_shapes, opt_shapes, opt_shapes)
+    profile.set_shape(network.get_input(0).name, min_shapes, opt_shapes, opt_shapes)                                   # avoid large engine sizes on trt 11.2 by making one dimension slightly dynamic
     config.add_optimization_profile(profile)
     engine  = builder.build_serialized_network(network, config)
     if engine is None:
@@ -336,7 +357,7 @@ def _get_engine(onnx_path, engine_dir, temp_window, engine_w, engine_h, interpol
     logging.warning("vs_undistort: Building new TensorRT engine for interpolation='%s' with temp_window=%d, width=%d, and height=%d. This may take a few minutes.", interpolation, temp_window, engine_w, engine_h)
     builder_info = _get_builder(plugin_path=plugin_path, trt_version=trt_version, cuda_major=cuda_major)
     if builder_info[0] == "python":
-        _build_engine_python(onnx_path=onnx_path, engine_path=engine_path, temp_window=temp_window, engine_w=engine_w, engine_h=engine_h, interpolation=interpolation, trt_package=builder_info[1])
+        _build_engine_python(onnx_path=onnx_path, engine_path=engine_path, temp_window=temp_window, engine_w=engine_w, engine_h=engine_h, interpolation=interpolation, trt_version=trt_version, trt_package=builder_info[1])
     elif builder_info[0] == "trtexec":
         _build_engine_trtexec(onnx_path=onnx_path, engine_path=engine_path, temp_window=temp_window, engine_w=engine_w, engine_h=engine_h, interpolation=interpolation, trt_version=trt_version, trtexec_path=builder_info[1])
     else:
@@ -364,7 +385,7 @@ def _tensorrt_inference(input_clips, onnx_path, engine_dir, temp_window, tile_w,
     return out
 
 
-def _tensorrt(clip, temp_window=10, tiles=1, overlap=8, interpolation="bicubic", num_streams=1, engine_folder=None):
+def _tensorrt(clip, temp_window=10, window_overlap=0, interpolation="bicubic", tiles=1, overlap=8, engine_folder=None):
     
     # checks
     if not isinstance(clip, vs.VideoNode):
@@ -377,16 +398,16 @@ def _tensorrt(clip, temp_window=10, tiles=1, overlap=8, interpolation="bicubic",
         raise TypeError("vs_undistort: Temporal window length must be an integer.")
     if temp_window < 2:
         raise ValueError("vs_undistort: Temporal window length must be at least 2.")
+    if not isinstance(window_overlap, int) or isinstance(window_overlap, bool):
+        raise TypeError("vs_undistort: Window overlap must be an integer.")
+    if window_overlap < 0 or window_overlap >= temp_window:
+        raise ValueError("vs_undistort: Window overlap can not be negative and must be smaller than temporal window length.")
     if not isinstance(tiles, int) or isinstance(tiles, bool):
         raise TypeError("vs_undistort: Tiles must be an integer.")
     if not isinstance(overlap, int) or isinstance(overlap, bool):
         raise TypeError("vs_undistort: Overlap must be an integer.")
     if overlap < 0:
         raise ValueError("vs_undistort: Overlap can not be negative.")
-    if not isinstance(num_streams, int) or isinstance(num_streams, bool):
-        raise TypeError("vs_undistort: Number of parallel TensorRT streams (num_streams) must be an integer.")
-    if num_streams < 1:
-        raise ValueError("vs_undistort: Number of parallel TensorRT streams (num_streams) must be at least 1.")
     
     # clamp
     clip = expression(clip, expr=["x 0 max 1 min"])
@@ -409,7 +430,7 @@ def _tensorrt(clip, temp_window=10, tiles=1, overlap=8, interpolation="bicubic",
     cur_pixels = temp_window * tile_w * tile_h
     max_pixels = 4194304  #2^22
     if cur_pixels >= max_pixels:
-        raise ValueError(f"vs_undistort: temp_window * tile width * tile height must be smaller than {max_pixels} (currently {cur_pixels}). Increase tiles or reduce temp_window or overlap.")
+        raise ValueError(f"vs_undistort: temp_window * tile width * tile height must be smaller than {max_pixels} (currently {cur_pixels}). Increase tiles or reduce temp_window.")
     
     if interpolation == "bilinear":
         model_name = "UNet3d_TMT_lin_op19_fp16.onnx"
@@ -421,11 +442,13 @@ def _tensorrt(clip, temp_window=10, tiles=1, overlap=8, interpolation="bicubic",
     current_dir   = os.path.dirname(os.path.abspath(__file__))
     engine_dir    = os.path.join(current_dir, "engines") if engine_folder is None else os.path.abspath(engine_folder)
     onnx_path     = os.path.join(current_dir, "models", model_name)
-    flex_out_prop = "vs_undistort_output"
+    flex_out_prop = "undistort_output"
     force_rebuild = False
+    num_streams   = 1
 
     # get inference window and do inference
-    input_clips   = get_window(clip, temp_window)
+    overlap_clip  = insert_overlaps(clip, temp_window, window_overlap)
+    input_clips   = get_window(overlap_clip, temp_window)
     stacked_clips = _tensorrt_inference(
         input_clips=input_clips,
         onnx_path=onnx_path,
@@ -448,39 +471,46 @@ def _tensorrt(clip, temp_window=10, tiles=1, overlap=8, interpolation="bicubic",
     grouped_clips  = [core.std.ShufflePlanes(planes[i:i+3], [0, 0, 0], vs.RGB) for i in range(0, num_planes, 3)]  # group every 3 planes back into RGB clips
     unstacked_clip = core.std.Interleave(grouped_clips)                                                           # interleave to restore chronological order
     
+    # crop
     if pad_w or pad_h:
         unstacked_clip = core.std.Crop(unstacked_clip, right=pad_w, bottom=pad_h)
-    if unstacked_clip.num_frames != clip.num_frames:
-        unstacked_clip = core.std.Trim(unstacked_clip, last=clip.num_frames - 1)
     
+    # trim overlaps, copy props, return
+    unstacked_clip = trim_overlaps(unstacked_clip, clip.num_frames, temp_window, window_overlap)
     return core.std.CopyFrameProps(unstacked_clip, clip)
 
 
-def vs_undistort(clip, temp_window=10, tiles=1, overlap=8, interpolation="bicubic", backend="tensorrt", num_streams=1, engine_folder=None):
-    """Removes distortions. Also known as atmospheric turbulence mitigation, warp stabilization, film shrink or VHS distortion fix, heat haze removal.
+def vs_undistort(clip, temp_window=10, window_overlap=0, interpolation="bicubic", backend="tensorrt", tiles=1, overlap=8, engine_folder=None):
+    """Removes distortions or wobble. Also known as warp stabilization, film or VHS distortion fix, atmospheric turbulence mitigation, or heat haze removal.
 
     Args:
-        clip: Distorted clip. Must be in RGB format.
+        clip: Distorted clip. Must be in RGBH format.
         temp_window: Temporal window length. This is how many frames are grouped together and processed as a single chunk. Larger means
             higher VRAM requirements, but better temporal averaging and slower distortions can be removed. If this is too small,
             some distortions may not get removed, small jumps/hitches may be visible between windows and seams from tiling
             may become more obvious.
-        tiles: Amount of tiles to split the frames into. A higher amount reduces VRAM requirements, but also worsens spatial averaging.
-            Default `tiles=1` uses the full frame.
-        overlap: Overlap from one tile to the next. Use if seams between tiles are visible.
-        interpolation: Interpolation mode used to warp the frames.  
+        window_overlap: Overlap between temporal windows. Larger is slower. Increase if jumps/hitches between windows are noticable.
+        interpolation: Interpolation mode used to warp the frames.
             - `bilinear` = More blurry.
             - `bicubic` = No blur, but may oversharpen slightly.
         backend: The backend used to run the model.
-            - `cpu` = CPU mode using PyTorch (very slow).
-            - `cuda` = GPU mode using PyTorch with CUDA support. Requires any Nvidia GPU (fast).
-            - `tensorrt` = GPU mode using vs-mlrt with TensorRT support. Requires an Nvidia RTX GPU (very fast and lower vram usage).
-        num_streams: Number of parallel TensorRT streams. For high end GPUs higher can be a bit faster, but requires more VRAM. Only affects the TensorRT backend.
+            - `cpu` = CPU mode (very slow).
+            - `cuda` = GPU mode using CUDA. Requires any Nvidia GPU (fast).
+            - `tensorrt` = GPU mode using TensorRT. Requires an Nvidia RTX GPU (very fast, low vram).
+        tiles: Amount of tiles to split the frames into. A higher amount reduces VRAM requirements, but also worsens spatial averaging.
+            Default `tiles=1` uses the full frame.
+        overlap: Overlap from one tile to the next. Increase if seams between tiles are visible.
         engine_folder: Optional path to the TensorRT engine storage location. By default engines are stored in `vs_undistort/engines`. Only affects the TensorRT backend.
     """
+    if not isinstance(backend, str):
+        raise TypeError("vs_temporalfix: Backend must be a string.")
+    if not isinstance(interpolation, str):
+        raise TypeError("vs_temporalfix: Interpolation must be a string.")
+    backend = backend.lower()
+    interpolation = interpolation.lower()
     
     if backend in ["cpu", "cuda"]:
-        return _pytorch(clip, temp_window=temp_window, tiles=tiles, overlap=overlap, interpolation=interpolation, device=backend)
+        return _pytorch(clip, temp_window=temp_window, window_overlap=window_overlap, interpolation=interpolation, tiles=tiles, overlap=overlap, device=backend)
     if backend in ["tensorrt", "trt"]:
-        return _tensorrt(clip, temp_window=temp_window, tiles=tiles, overlap=overlap, interpolation=interpolation, num_streams=num_streams, engine_folder=engine_folder)
-    raise ValueError("vs_undistort: Backend must be 'cpu', 'cuda', or 'tensorrt'.")
+        return _tensorrt(clip, temp_window=temp_window, window_overlap=window_overlap, interpolation=interpolation, tiles=tiles, overlap=overlap, engine_folder=engine_folder)
+    raise ValueError("vs_undistort: Backend must be CPU, CUDA, or TensorRT.")
