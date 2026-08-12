@@ -31,6 +31,7 @@ dependencies = [
 	"vapoursynth>=74",
     "vapoursynth-mlrt-trt>=16.0",
     "tensorrt-cu13>=11.1.0.106",
+	"cuda-python",
     "numpy"
 ]
 
