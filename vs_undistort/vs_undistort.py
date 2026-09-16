@@ -509,9 +509,9 @@ def vs_undistort(clip: vs.VideoNode, temp_window: int = 10, window_overlap: int 
         engine_folder: Optional path to the TensorRT engine storage location. By default engines are stored in `vs_undistort/engines`. Only affects the TensorRT backend.
     """
     if not isinstance(backend, str):
-        raise TypeError("vs_temporalfix: Backend must be a string.")
+        raise TypeError("vs_undistort: Backend must be a string.")
     if not isinstance(interpolation, str):
-        raise TypeError("vs_temporalfix: Interpolation must be a string.")
+        raise TypeError("vs_undistort: Interpolation must be a string.")
     backend = backend.lower()
     interpolation = interpolation.lower()
     
