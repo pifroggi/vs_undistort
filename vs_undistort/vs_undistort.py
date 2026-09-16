@@ -237,6 +237,7 @@ def _build_engine_trtexec(onnx_path, engine_path, temp_window, engine_w, engine_
         *(["--markDebug=grid_sampler,grid_sampler_1"] if interpolation == "bicubic" else []),  # part of gridsample bicubic workaround
         *(["--memPoolSize=workspace:6144"] if not bic50 else []),                              # fix 50 series, dynamic shapes needed too
         "--skipInference",
+        "--avgTiming=8",
         "--builderOptimizationLevel=3",
         f"--inputIOFormats={io_formats}",
         f"--outputIOFormats={io_formats}",
@@ -311,6 +312,7 @@ def _build_engine_python(onnx_path, engine_path, temp_window, engine_w, engine_h
     min_shapes = (1, temp_window * 3, engine_h, engine_w - 8 if trt_version >= [11, 2, 0] or bic50 else engine_w)      # minShapes needed for 50 series or trt 11.2
     network.get_input(0).allowed_formats = network.get_output(0).allowed_formats = 1 << int(trt.TensorFormat.LINEAR)   # IOFormats:chw
     config.builder_optimization_level = 3                                                                              # builderOptimizationLevel
+    config.avg_timing_iterations = 8                                                                                   # avgTiming
     if not bic50:
         config.set_memory_pool_limit(trt.MemoryPoolType.WORKSPACE, 6144 << 20)                                         # workspace
 
@@ -385,13 +387,15 @@ def _tensorrt_inference(input_clips, onnx_path, engine_dir, temp_window, tile_w,
     return out
 
 
-def _tensorrt(clip, temp_window=10, window_overlap=0, interpolation="bicubic", tiles=1, overlap=8, engine_folder=None):
+def vs_undistort(clip: vs.VideoNode, temp_window: int = 10, window_overlap: int = 0, interpolation: str = "bicubic", backend: str = "tensorrt", tiles: int = 1, overlap: int = 8, engine_folder: str | None = None) -> vs.VideoNode:
     
     # checks
     if not isinstance(clip, vs.VideoNode):
         raise TypeError("vs_undistort: Clip must be a vapoursynth clip.")
     if clip.format.id == vs.PresetVideoFormat.NONE or clip.width == 0 or clip.height == 0:
         raise TypeError("vs_undistort: Clip must have constant format and dimensions.")
+    if vs.__version__.release_major >= 80 and clip.gpu_resident:
+        raise ValueError("vs_undistort: GPU based input clips are not supported yet. Please download the input clip to CPU first.")
     if clip.format.id not in [vs.RGBH]:
         raise ValueError("vs_undistort: Clip must be in RGBH format for the TensorRT backend.")
     if not isinstance(temp_window, int) or isinstance(temp_window, bool):
