@@ -41,3 +41,4 @@ dependencies = [
 Homepage = "https://github.com/pifroggi/vs_undistort"
 Repository = "https://github.com/pifroggi/vs_undistort"
 Issues = "https://github.com/pifroggi/vs_undistort/issues"
+Changelog = "https://github.com/pifroggi/vs_undistort/releases"
