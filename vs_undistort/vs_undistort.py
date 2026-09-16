@@ -93,6 +93,8 @@ def _pytorch(clip, temp_window=10, window_overlap=0, interpolation="bicubic", ti
         raise TypeError("vs_undistort: Clip must be a vapoursynth clip.")
     if clip.format.id == vs.PresetVideoFormat.NONE or clip.width == 0 or clip.height == 0:
         raise TypeError("vs_undistort: Clip must have constant format and dimensions.")
+    if vs.__version__.release_major >= 80 and clip.gpu_resident:
+        raise ValueError("vs_undistort: GPU based input clips are not supported yet. Please download the input clip to CPU first.")
     if clip.format.color_family != vs.RGB:
         raise ValueError("vs_undistort: Clip must be in RGB format.")
     if not isinstance(temp_window, int) or isinstance(temp_window, bool):
@@ -387,7 +389,7 @@ def _tensorrt_inference(input_clips, onnx_path, engine_dir, temp_window, tile_w,
     return out
 
 
-def vs_undistort(clip: vs.VideoNode, temp_window: int = 10, window_overlap: int = 0, interpolation: str = "bicubic", backend: str = "tensorrt", tiles: int = 1, overlap: int = 8, engine_folder: str | None = None) -> vs.VideoNode:
+def _tensorrt(clip, temp_window=10, window_overlap=0, interpolation="bicubic", tiles=1, overlap=8, engine_folder=None):
     
     # checks
     if not isinstance(clip, vs.VideoNode):
@@ -484,7 +486,7 @@ def vs_undistort(clip: vs.VideoNode, temp_window: int = 10, window_overlap: int 
     return core.std.CopyFrameProps(unstacked_clip, clip)
 
 
-def vs_undistort(clip, temp_window=10, window_overlap=0, interpolation="bicubic", backend="tensorrt", tiles=1, overlap=8, engine_folder=None):
+def vs_undistort(clip: vs.VideoNode, temp_window: int = 10, window_overlap: int = 0, interpolation: str = "bicubic", backend: str = "tensorrt", tiles: int = 1, overlap: int = 8, engine_folder: str | None = None) -> vs.VideoNode:
     """Removes distortions or wobble. Also known as warp stabilization, film or VHS distortion fix, atmospheric turbulence mitigation, or heat haze removal.
 
     Args:
